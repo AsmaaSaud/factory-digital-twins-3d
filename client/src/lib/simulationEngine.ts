@@ -442,26 +442,48 @@ export class FactorySimulation {
     const params = { ...this.params, ...newParams };
     const sim = new FactorySimulation(params);
     
-    // Fast-forward simulation
+    // Fast-forward simulation — track time-weighted resource usage
     const steps = 2000;
     const dt = durationMinutes / steps;
+
+    // Skip warm-up (first 20% of steps) to reach steady state before sampling
+    const warmupSteps = Math.floor(steps * 0.2);
+    let totalResourceUsed = 0;
+    let sampleCount = 0;
+
+    // Accumulate queue lengths for averaging (post warm-up)
+    let sumQ: [number, number, number] = [0, 0, 0];
+
     for (let i = 0; i < steps; i++) {
       sim['step'](dt);
+      if (i >= warmupSteps) {
+        const snap = sim.getState();
+        totalResourceUsed += snap.resourceUsed;
+        sumQ[0] += snap.paths[0].queueLength;
+        sumQ[1] += snap.paths[1].queueLength;
+        sumQ[2] += snap.paths[2].queueLength;
+        sampleCount++;
+      }
     }
 
     const s = sim.getState();
+    const n = sampleCount || 1;
     const avgQ: [number, number, number] = [
-      s.paths[0].queueLength,
-      s.paths[1].queueLength,
-      s.paths[2].queueLength,
+      sumQ[0] / n,
+      sumQ[1] / n,
+      sumQ[2] / n,
     ];
     const bottleneck = avgQ.indexOf(Math.max(...avgQ));
+
+    // Average resource utilization over steady-state period
+    const avgResourceUsed = totalResourceUsed / n;
+    const resourceUtilization = Math.min(100, Math.round((avgResourceUsed / params.resourceCapacity) * 100));
 
     return {
       avgQueueLengths: avgQ,
       totalThroughput: s.totalSinked,
       pathThroughputs: s.pathThroughput,
-      resourceUtilization: Math.round((s.resourceUsed / params.resourceCapacity) * 100),
+      resourceUtilization,
       bottleneck,
     };
   }
