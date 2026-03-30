@@ -1,4 +1,4 @@
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
+import { ComposedChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 import type { SimState } from '@/lib/simulationEngine';
 
 interface StatsPanelProps {
@@ -182,33 +182,127 @@ export default function StatsPanel({ simState, predictionResult, pathEnabled }: 
       </div>
 
       {/* Telemetry Chart */}
-      <div className="p-3" style={{ borderBottom: '1px solid var(--border-dim)' }}>
-        <SectionLabel>QUEUE &amp; THROUGHPUT HISTORY</SectionLabel>
-        <div style={{ height: 130, minHeight: 130 }}>
+      <div className="px-3 pt-3 pb-2" style={{ borderBottom: '1px solid var(--border-dim)' }}>
+        <div className="flex items-center justify-between mb-2">
+          <SectionLabel>QUEUE &amp; THROUGHPUT HISTORY</SectionLabel>
+          {simState.throughputHistory.length === 0 && (
+            <span style={{ color: '#2a4060', fontFamily: 'Space Mono', fontSize: '9px', letterSpacing: '0.06em' }}>AWAITING DATA…</span>
+          )}
+        </div>
+
+        {/* Queue per path chart */}
+        <div style={{ height: 100, minHeight: 100 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={simState.throughputHistory} margin={{ top: 4, right: 4, left: -22, bottom: 0 }}>
+            <ComposedChart data={simState.throughputHistory} margin={{ top: 2, right: 6, left: -28, bottom: 0 }}>
+              <defs>
+                <linearGradient id="gQ0" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor="#00d4ff" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#00d4ff" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="gQ1" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor="#00e676" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#00e676" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="gQ2" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor="#ff6d35" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#ff6d35" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="2 4" stroke="rgba(255,255,255,0.04)" vertical={false} />
               <XAxis
                 dataKey="time"
-                tick={{ fill: '#2a3f55', fontSize: 8, fontFamily: 'Space Mono' }}
+                tick={{ fill: '#2a4060', fontSize: 8, fontFamily: 'Space Mono' }}
                 tickLine={false}
-                axisLine={false}
+                axisLine={{ stroke: 'rgba(255,255,255,0.06)' }}
+                tickFormatter={(v) => `${Math.round(v / 60)}h`}
+                interval="preserveStartEnd"
               />
               <YAxis
-                tick={{ fill: '#2a3f55', fontSize: 8, fontFamily: 'Space Mono' }}
+                tick={{ fill: '#2a4060', fontSize: 8, fontFamily: 'Space Mono' }}
                 tickLine={false}
                 axisLine={false}
+                width={28}
               />
-              <Tooltip content={<ChartTooltip />} />
-              <Line type="monotone" dataKey="queueTotal" stroke="#ff6d35" strokeWidth={1.5} dot={false} name="Queue" />
-              <Line type="monotone" dataKey="throughput"  stroke="#00d4ff" strokeWidth={1.5} dot={false} name="Throughput" />
-            </LineChart>
+              <Tooltip
+                content={({ active, payload, label }) => {
+                  if (!active || !payload?.length) return null;
+                  return (
+                    <div style={{
+                      background: 'rgba(7,9,15,0.95)',
+                      border: '1px solid rgba(0,212,255,0.25)',
+                      borderRadius: '4px',
+                      padding: '8px 10px',
+                      fontFamily: 'Space Mono',
+                      fontSize: '10px',
+                    }}>
+                      <div style={{ color: '#4a6070', marginBottom: '5px', fontSize: '9px' }}>
+                        T = {Math.round(Number(label) / 60 * 10) / 10}h
+                      </div>
+                      {payload.map((p: any) => (
+                        <div key={p.dataKey} className="flex items-center gap-2" style={{ marginBottom: '2px' }}>
+                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.color }} />
+                          <span style={{ color: '#5a7090' }}>{p.name}:</span>
+                          <span style={{ color: p.color, fontWeight: 'bold' }}>{p.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }}
+              />
+              <Area type="monotone" dataKey="q0" stroke="#00d4ff" strokeWidth={1.5} fill="url(#gQ0)" dot={false} name="Q PATH 1" />
+              <Area type="monotone" dataKey="q1" stroke="#00e676" strokeWidth={1.5} fill="url(#gQ1)" dot={false} name="Q PATH 2" />
+              <Area type="monotone" dataKey="q2" stroke="#ff6d35" strokeWidth={1.5} fill="url(#gQ2)" dot={false} name="Q PATH 3" />
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
-        <div className="flex gap-4 mt-1.5 justify-end">
-          {[{ label: 'Queue', color: '#ff6d35' }, { label: 'Throughput', color: '#00d4ff' }].map(l => (
+
+        {/* Throughput chart */}
+        <div style={{ marginTop: '6px' }}>
+          <div style={{ color: '#2a4060', fontFamily: 'Rajdhani', fontSize: '9px', letterSpacing: '0.1em', marginBottom: '3px' }}>THROUGHPUT /hr</div>
+          <div style={{ height: 60, minHeight: 60 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={simState.throughputHistory} margin={{ top: 2, right: 6, left: -28, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="gTp" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#a78bfa" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#a78bfa" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="2 4" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                <XAxis dataKey="time" hide />
+                <YAxis
+                  tick={{ fill: '#2a4060', fontSize: 8, fontFamily: 'Space Mono' }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={28}
+                />
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null;
+                    return (
+                      <div style={{ background: 'rgba(7,9,15,0.95)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: '4px', padding: '6px 10px', fontFamily: 'Space Mono', fontSize: '10px' }}>
+                        <span style={{ color: '#a78bfa' }}>⟶ {payload[0].value} /hr</span>
+                      </div>
+                    );
+                  }}
+                />
+                <Area type="monotone" dataKey="throughput" stroke="#a78bfa" strokeWidth={2} fill="url(#gTp)" dot={false} name="Throughput" />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Legend */}
+        <div className="flex flex-wrap gap-3 mt-2">
+          {[
+            { label: 'Q PATH 1', color: '#00d4ff' },
+            { label: 'Q PATH 2', color: '#00e676' },
+            { label: 'Q PATH 3', color: '#ff6d35' },
+            { label: 'THROUGHPUT', color: '#a78bfa' },
+          ].map(l => (
             <div key={l.label} className="flex items-center gap-1">
-              <div className="w-3 h-0.5 rounded" style={{ background: l.color }} />
-              <span style={{ color: '#3a5070', fontFamily: 'Space Grotesk', fontSize: '9px' }}>{l.label}</span>
+              <div style={{ width: 14, height: 2, borderRadius: 1, background: l.color }} />
+              <span style={{ color: '#3a5070', fontFamily: 'Space Grotesk', fontSize: '9px', letterSpacing: '0.04em' }}>{l.label}</span>
             </div>
           ))}
         </div>

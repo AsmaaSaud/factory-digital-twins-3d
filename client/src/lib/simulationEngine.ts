@@ -58,7 +58,7 @@ export interface SimState {
   totalSinked: number;
   resourceUsed: number;
   resourceAvailable: number;
-  throughputHistory: { time: number; throughput: number; queueTotal: number }[];
+  throughputHistory: { time: number; throughput: number; queueTotal: number; q0: number; q1: number; q2: number }[];
   pathThroughput: [number, number, number];
 }
 
@@ -245,6 +245,9 @@ export class FactorySimulation {
         time: Math.round(t),
         throughput: Math.round(throughput * 10) / 10,
         queueTotal: totalQ,
+        q0: this.state.paths[0].queueLength,
+        q1: this.state.paths[1].queueLength,
+        q2: this.state.paths[2].queueLength,
       });
       if (this.state.throughputHistory.length > 120) {
         this.state.throughputHistory.shift();
