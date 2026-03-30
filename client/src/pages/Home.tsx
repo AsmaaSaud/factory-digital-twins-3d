@@ -9,6 +9,7 @@ import { FactorySimulation, defaultParams, type SimState, type SimParams } from 
 import Factory3DScene from '@/components/Factory3DScene';
 import ControlPanel from '@/components/ControlPanel';
 import StatsPanel, { type PredictionResult } from '@/components/StatsPanel';
+import ExportModal from '@/components/ExportModal';
 
 export default function Home() {
   const [params, setParams] = useState<SimParams>({ ...defaultParams });
@@ -19,6 +20,7 @@ export default function Home() {
   const [predictionResult, setPredictionResult] = useState<PredictionResult | null>(null);
   const [showPrediction, setShowPrediction] = useState(false);
   const [activeView, setActiveView] = useState<'3d' | 'split'>('3d');
+  const [showExport, setShowExport] = useState(false);
   const simRef = useRef<FactorySimulation | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [sceneSize, setSceneSize] = useState({ width: 0, height: 0 });
@@ -235,6 +237,19 @@ export default function Home() {
             >
               {activeView === '3d' ? '⊞ SPLIT' : '⬛ 3D ONLY'}
             </button>
+            <button
+              onClick={() => setShowExport(true)}
+              className="text-xs px-3 py-1 rounded font-bold tracking-wider transition-all hover:opacity-90"
+              style={{
+                background: 'rgba(0,255,136,0.12)',
+                border: '1px solid #00ff88',
+                color: '#00ff88',
+                fontFamily: 'Rajdhani',
+                letterSpacing: '0.08em',
+              }}
+            >
+              ↓ EXPORT
+            </button>
           </div>
         </div>
       </header>
@@ -361,6 +376,15 @@ export default function Home() {
           />
         </div>
       </div>
+      {/* Export Modal */}
+      {showExport && (
+        <ExportModal
+          simState={simState}
+          params={params}
+          predictionResult={predictionResult}
+          onClose={() => setShowExport(false)}
+        />
+      )}
     </div>
   );
 }
