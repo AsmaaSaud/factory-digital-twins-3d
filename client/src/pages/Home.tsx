@@ -107,7 +107,7 @@ export default function Home() {
     ? (simState.totalSinked / (simState.time / 60)).toFixed(1)
     : '0.0';
 
-  const statsHeight = activeView === 'split' ? '45%' : (showPrediction ? '420px' : '360px');
+  const statsHeight = activeView === 'split' ? '45%' : (showPrediction ? '460px' : '400px');
 
   return (
     <div

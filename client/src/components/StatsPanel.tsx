@@ -1,4 +1,4 @@
-import { ComposedChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
+import { ComposedChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 import type { SimState } from '@/lib/simulationEngine';
 
 interface StatsPanelProps {
@@ -181,128 +181,194 @@ export default function StatsPanel({ simState, predictionResult, pathEnabled }: 
         </div>
       </div>
 
-      {/* Telemetry Chart */}
-      <div className="px-3 pt-3 pb-2" style={{ borderBottom: '1px solid var(--border-dim)' }}>
+      {/* Live Telemetry Chart — single large chart, two lines, dual Y-axis */}
+      <div
+        className="px-3 pt-3 pb-3"
+        style={{
+          borderBottom: '1px solid var(--border-dim)',
+          background: 'linear-gradient(180deg, rgba(0,18,40,0.6) 0%, rgba(0,10,25,0.4) 100%)',
+        }}
+      >
+        {/* Header row */}
         <div className="flex items-center justify-between mb-2">
-          <SectionLabel>QUEUE &amp; THROUGHPUT HISTORY</SectionLabel>
-          {simState.throughputHistory.length === 0 && (
-            <span style={{ color: '#2a4060', fontFamily: 'Space Mono', fontSize: '9px', letterSpacing: '0.06em' }}>AWAITING DATA…</span>
-          )}
+          <div className="flex items-center gap-2">
+            <span style={{ color: 'var(--cyan)', fontSize: '11px' }}>⬡</span>
+            <SectionLabel>LIVE TELEMETRY</SectionLabel>
+          </div>
+          <div className="flex items-center gap-1">
+            <div
+              className="w-1.5 h-1.5 rounded-full"
+              style={{
+                background: simState.running ? 'var(--green)' : '#3a5070',
+                boxShadow: simState.running ? '0 0 6px var(--green)' : 'none',
+                animation: simState.running ? 'pulse-dot 1.4s ease-in-out infinite' : 'none',
+              }}
+            />
+            <span style={{ color: simState.running ? 'var(--green)' : '#3a5070', fontFamily: 'Space Mono', fontSize: '9px', letterSpacing: '0.08em' }}>
+              {simState.running ? 'LIVE' : 'PAUSED'}
+            </span>
+          </div>
         </div>
 
-        {/* Queue per path chart */}
-        <div style={{ height: 100, minHeight: 100 }}>
+        {/* Main dual-axis chart */}
+        <div
+          style={{
+            height: 160,
+            background: 'rgba(0,12,30,0.55)',
+            border: '1px solid rgba(0,212,255,0.1)',
+            borderRadius: '4px',
+            padding: '6px 4px 2px 0',
+            position: 'relative',
+          }}
+        >
+          {simState.throughputHistory.length === 0 && (
+            <div
+              className="absolute inset-0 flex items-center justify-center"
+              style={{ color: '#1a3050', fontFamily: 'Space Mono', fontSize: '10px', letterSpacing: '0.1em', pointerEvents: 'none' }}
+            >
+              AWAITING DATA…
+            </div>
+          )}
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={simState.throughputHistory} margin={{ top: 2, right: 6, left: -28, bottom: 0 }}>
+            <ComposedChart data={simState.throughputHistory} margin={{ top: 8, right: 40, left: -10, bottom: 0 }}>
               <defs>
-                <linearGradient id="gQ0" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#00d4ff" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#00d4ff" stopOpacity={0} />
+                <linearGradient id="gradQ" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%"  stopColor="#00d4ff" stopOpacity={0.18} />
+                  <stop offset="100%" stopColor="#00d4ff" stopOpacity={0} />
                 </linearGradient>
-                <linearGradient id="gQ1" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#00e676" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#00e676" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="gQ2" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#ff6d35" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#ff6d35" stopOpacity={0} />
+                <linearGradient id="gradTp" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%"  stopColor="#ffb300" stopOpacity={0.18} />
+                  <stop offset="100%" stopColor="#ffb300" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="2 4" stroke="rgba(255,255,255,0.04)" vertical={false} />
+
+              <CartesianGrid
+                strokeDasharray="3 6"
+                stroke="rgba(0,180,255,0.07)"
+                vertical={false}
+              />
+
               <XAxis
                 dataKey="time"
                 tick={{ fill: '#2a4060', fontSize: 8, fontFamily: 'Space Mono' }}
                 tickLine={false}
-                axisLine={{ stroke: 'rgba(255,255,255,0.06)' }}
-                tickFormatter={(v) => `${Math.round(v / 60)}h`}
+                axisLine={{ stroke: 'rgba(0,212,255,0.12)' }}
+                tickFormatter={(v) => {
+                  const h = Math.floor(v / 60);
+                  const m = Math.floor(v % 60);
+                  return `${h}:${String(m).padStart(2,'0')}`;
+                }}
                 interval="preserveStartEnd"
+                minTickGap={40}
               />
+
+              {/* Left Y — Queue Length */}
               <YAxis
-                tick={{ fill: '#2a4060', fontSize: 8, fontFamily: 'Space Mono' }}
+                yAxisId="queue"
+                orientation="left"
+                tick={{ fill: '#00d4ff', fontSize: 8, fontFamily: 'Space Mono' }}
                 tickLine={false}
                 axisLine={false}
-                width={28}
+                width={26}
               />
+
+              {/* Right Y — Throughput /hr */}
+              <YAxis
+                yAxisId="tp"
+                orientation="right"
+                tick={{ fill: '#ffb300', fontSize: 8, fontFamily: 'Space Mono' }}
+                tickLine={false}
+                axisLine={false}
+                width={30}
+              />
+
               <Tooltip
                 content={({ active, payload, label }) => {
                   if (!active || !payload?.length) return null;
+                  const h = Math.floor(Number(label) / 60);
+                  const m = Math.floor(Number(label) % 60);
+                  const qEntry = payload.find((p: any) => p.dataKey === 'queueTotal');
+                  const tpEntry = payload.find((p: any) => p.dataKey === 'throughput');
                   return (
                     <div style={{
-                      background: 'rgba(7,9,15,0.95)',
-                      border: '1px solid rgba(0,212,255,0.25)',
+                      background: 'rgba(4,10,22,0.97)',
+                      border: '1px solid rgba(0,212,255,0.3)',
                       borderRadius: '4px',
-                      padding: '8px 10px',
+                      padding: '8px 12px',
                       fontFamily: 'Space Mono',
                       fontSize: '10px',
+                      minWidth: '140px',
                     }}>
-                      <div style={{ color: '#4a6070', marginBottom: '5px', fontSize: '9px' }}>
-                        T = {Math.round(Number(label) / 60 * 10) / 10}h
+                      <div style={{ color: '#3a6080', marginBottom: '6px', fontSize: '9px' }}>
+                        {String(h).padStart(2,'0')}:{String(m).padStart(2,'0')} sim-time
                       </div>
-                      {payload.map((p: any) => (
-                        <div key={p.dataKey} className="flex items-center gap-2" style={{ marginBottom: '2px' }}>
-                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.color }} />
-                          <span style={{ color: '#5a7090' }}>{p.name}:</span>
-                          <span style={{ color: p.color, fontWeight: 'bold' }}>{p.value}</span>
+                      {qEntry && (
+                        <div className="flex items-center justify-between gap-4" style={{ marginBottom: '3px' }}>
+                          <div className="flex items-center gap-1.5">
+                            <div style={{ width: 20, height: 2, background: '#00d4ff', borderRadius: 1 }} />
+                            <span style={{ color: '#5a8090' }}>Queue Length</span>
+                          </div>
+                          <span style={{ color: '#00d4ff', fontWeight: 'bold' }}>{qEntry.value}</span>
                         </div>
-                      ))}
+                      )}
+                      {tpEntry && (
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-1.5">
+                            <div style={{ width: 20, height: 2, background: '#ffb300', borderRadius: 1 }} />
+                            <span style={{ color: '#7a6030' }}>Throughput /hr</span>
+                          </div>
+                          <span style={{ color: '#ffb300', fontWeight: 'bold' }}>{tpEntry.value}</span>
+                        </div>
+                      )}
                     </div>
                   );
                 }}
+                cursor={{ stroke: 'rgba(0,212,255,0.2)', strokeWidth: 1, strokeDasharray: '3 3' }}
               />
-              <Area type="monotone" dataKey="q0" stroke="#00d4ff" strokeWidth={1.5} fill="url(#gQ0)" dot={false} name="Q PATH 1" />
-              <Area type="monotone" dataKey="q1" stroke="#00e676" strokeWidth={1.5} fill="url(#gQ1)" dot={false} name="Q PATH 2" />
-              <Area type="monotone" dataKey="q2" stroke="#ff6d35" strokeWidth={1.5} fill="url(#gQ2)" dot={false} name="Q PATH 3" />
+
+              {/* Queue Length line with area fill */}
+              <Area
+                yAxisId="queue"
+                type="monotoneX"
+                dataKey="queueTotal"
+                stroke="#00d4ff"
+                strokeWidth={2}
+                fill="url(#gradQ)"
+                dot={false}
+                activeDot={{ r: 3, fill: '#00d4ff', stroke: 'rgba(0,212,255,0.4)', strokeWidth: 4 }}
+                name="Queue Length"
+                isAnimationActive={false}
+              />
+
+              {/* Throughput /hr line with area fill */}
+              <Area
+                yAxisId="tp"
+                type="monotoneX"
+                dataKey="throughput"
+                stroke="#ffb300"
+                strokeWidth={2}
+                fill="url(#gradTp)"
+                dot={false}
+                activeDot={{ r: 3, fill: '#ffb300', stroke: 'rgba(255,179,0,0.4)', strokeWidth: 4 }}
+                name="Throughput /hr"
+                isAnimationActive={false}
+              />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Throughput chart */}
-        <div style={{ marginTop: '6px' }}>
-          <div style={{ color: '#2a4060', fontFamily: 'Rajdhani', fontSize: '9px', letterSpacing: '0.1em', marginBottom: '3px' }}>THROUGHPUT /hr</div>
-          <div style={{ height: 60, minHeight: 60 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={simState.throughputHistory} margin={{ top: 2, right: 6, left: -28, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="gTp" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#a78bfa" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#a78bfa" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="2 4" stroke="rgba(255,255,255,0.04)" vertical={false} />
-                <XAxis dataKey="time" hide />
-                <YAxis
-                  tick={{ fill: '#2a4060', fontSize: 8, fontFamily: 'Space Mono' }}
-                  tickLine={false}
-                  axisLine={false}
-                  width={28}
-                />
-                <Tooltip
-                  content={({ active, payload }) => {
-                    if (!active || !payload?.length) return null;
-                    return (
-                      <div style={{ background: 'rgba(7,9,15,0.95)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: '4px', padding: '6px 10px', fontFamily: 'Space Mono', fontSize: '10px' }}>
-                        <span style={{ color: '#a78bfa' }}>⟶ {payload[0].value} /hr</span>
-                      </div>
-                    );
-                  }}
-                />
-                <Area type="monotone" dataKey="throughput" stroke="#a78bfa" strokeWidth={2} fill="url(#gTp)" dot={false} name="Throughput" />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
         {/* Legend */}
-        <div className="flex flex-wrap gap-3 mt-2">
+        <div className="flex items-center gap-5 mt-2 justify-center">
           {[
-            { label: 'Q PATH 1', color: '#00d4ff' },
-            { label: 'Q PATH 2', color: '#00e676' },
-            { label: 'Q PATH 3', color: '#ff6d35' },
-            { label: 'THROUGHPUT', color: '#a78bfa' },
+            { label: 'Queue Length', color: '#00d4ff' },
+            { label: 'Throughput /hr', color: '#ffb300' },
           ].map(l => (
-            <div key={l.label} className="flex items-center gap-1">
-              <div style={{ width: 14, height: 2, borderRadius: 1, background: l.color }} />
-              <span style={{ color: '#3a5070', fontFamily: 'Space Grotesk', fontSize: '9px', letterSpacing: '0.04em' }}>{l.label}</span>
+            <div key={l.label} className="flex items-center gap-1.5">
+              <svg width="22" height="8" viewBox="0 0 22 8">
+                <line x1="0" y1="4" x2="22" y2="4" stroke={l.color} strokeWidth="2" />
+                <circle cx="11" cy="4" r="2.5" fill={l.color} />
+              </svg>
+              <span style={{ color: '#3a5070', fontFamily: 'Space Grotesk', fontSize: '9px', letterSpacing: '0.05em' }}>{l.label}</span>
             </div>
           ))}
         </div>
