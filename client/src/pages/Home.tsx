@@ -447,6 +447,8 @@ export default function Home() {
             simTime={simState.time}
             pathEnabled={pathEnabled}
             onTogglePath={handleTogglePath}
+            resourceUsed={simState.resourceUsed}
+            resourceAvailable={simState.resourceAvailable}
           />
         </div>
       </div>

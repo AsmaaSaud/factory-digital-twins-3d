@@ -14,6 +14,9 @@ interface ControlPanelProps {
   simTime: number;
   pathEnabled: [boolean, boolean, boolean];
   onTogglePath: (idx: number) => void;
+  // Live resource usage from simulation state
+  resourceUsed: number;
+  resourceAvailable: number;
 }
 
 // ---- SliderInput: slider + editable number box side by side ----
@@ -204,6 +207,8 @@ export default function ControlPanel({
   simTime,
   pathEnabled,
   onTogglePath,
+  resourceUsed,
+  resourceAvailable,
 }: ControlPanelProps) {
   const [activeTab, setActiveTab] = useState<TabId>('paths');
 
@@ -469,15 +474,25 @@ export default function ControlPanel({
                 tooltip="Shared resource pool capacity (Resource1 — all paths draw from this)"
                 onChange={v => onParamsChange({ resourceCapacity: v })}
               />
-              <div className="p-2.5 rounded" style={{ background: 'rgba(179,136,255,0.05)', border: '1px solid rgba(179,136,255,0.15)' }}>
+                <div className="p-2.5 rounded" style={{ background: 'rgba(179,136,255,0.05)', border: '1px solid rgba(179,136,255,0.15)' }}>
                 <div className="flex justify-between mb-1">
                   <span style={{ color: '#6a7f99', fontFamily: 'Space Grotesk', fontSize: '10px' }}>ALLOCATED</span>
                   <span style={{ color: 'var(--purple)', fontFamily: 'Space Mono', fontSize: '11px' }}>
-                    {Math.round(params.resourceCapacity * 0.6)} / {params.resourceCapacity}
+                    {resourceUsed} / {params.resourceCapacity}
                   </span>
                 </div>
                 <div style={{ height: '6px', borderRadius: '3px', background: 'var(--surface-4)', overflow: 'hidden' }}>
-                  <div style={{ width: '60%', height: '100%', background: 'var(--purple)', opacity: 0.7, borderRadius: '3px' }} />
+                  <div style={{
+                    width: `${params.resourceCapacity > 0 ? Math.round((resourceUsed / params.resourceCapacity) * 100) : 0}%`,
+                    height: '100%',
+                    background: resourceUsed / params.resourceCapacity > 0.85 ? 'var(--red)' : 'var(--purple)',
+                    opacity: 0.7,
+                    borderRadius: '3px',
+                    transition: 'width 0.3s, background 0.3s',
+                  }} />
+                </div>
+                <div style={{ color: '#3a5070', fontFamily: 'Space Grotesk', fontSize: '9px', marginTop: '4px' }}>
+                  {resourceAvailable} units available
                 </div>
               </div>
             </div>
