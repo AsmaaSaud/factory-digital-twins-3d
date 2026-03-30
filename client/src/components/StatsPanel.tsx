@@ -329,29 +329,31 @@ export default function StatsPanel({ simState, predictionResult, pathEnabled }: 
               {/* Queue Length line with area fill */}
               <Area
                 yAxisId="queue"
-                type="monotoneX"
+                type="monotone"
                 dataKey="queueTotal"
                 stroke="#00d4ff"
-                strokeWidth={2}
+                strokeWidth={2.5}
                 fill="url(#gradQ)"
                 dot={false}
-                activeDot={{ r: 3, fill: '#00d4ff', stroke: 'rgba(0,212,255,0.4)', strokeWidth: 4 }}
+                activeDot={{ r: 4, fill: '#00d4ff', stroke: 'rgba(0,212,255,0.5)', strokeWidth: 5 }}
                 name="Queue Length"
                 isAnimationActive={false}
+                connectNulls
               />
 
               {/* Throughput /hr line with area fill */}
               <Area
                 yAxisId="tp"
-                type="monotoneX"
+                type="monotone"
                 dataKey="throughput"
                 stroke="#ffb300"
-                strokeWidth={2}
+                strokeWidth={2.5}
                 fill="url(#gradTp)"
                 dot={false}
-                activeDot={{ r: 3, fill: '#ffb300', stroke: 'rgba(255,179,0,0.4)', strokeWidth: 4 }}
+                activeDot={{ r: 4, fill: '#ffb300', stroke: 'rgba(255,179,0,0.5)', strokeWidth: 5 }}
                 name="Throughput /hr"
                 isAnimationActive={false}
+                connectNulls
               />
             </ComposedChart>
           </ResponsiveContainer>

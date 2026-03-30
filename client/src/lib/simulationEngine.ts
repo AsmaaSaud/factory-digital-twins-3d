@@ -235,21 +235,22 @@ export class FactorySimulation {
     // Update state
     this.updateStateFromEntities();
 
-    // Record history every 0.5 sim-minutes
+    // Record history every 0.1 sim-minutes for smooth continuous lines
     this.historyInterval += dt;
-    if (this.historyInterval >= 0.5) {
+    if (this.historyInterval >= 0.1) {
       this.historyInterval = 0;
       const totalQ = this.state.paths.reduce((s, p) => s + p.queueLength, 0);
       const throughput = this.state.totalSinked / Math.max(t / 60, 0.001);
       this.state.throughputHistory.push({
-        time: Math.round(t),
+        time: Math.round(t * 10) / 10,
         throughput: Math.round(throughput * 10) / 10,
         queueTotal: totalQ,
         q0: this.state.paths[0].queueLength,
         q1: this.state.paths[1].queueLength,
         q2: this.state.paths[2].queueLength,
       });
-      if (this.state.throughputHistory.length > 120) {
+      // Keep last 500 points for a smooth rolling window
+      if (this.state.throughputHistory.length > 500) {
         this.state.throughputHistory.shift();
       }
     }
