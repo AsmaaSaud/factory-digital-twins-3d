@@ -11,6 +11,7 @@ interface Factory3DSceneProps {
   height?: number;
   serverPositions?: [number, number, number];
   onServerMove?: (pathIdx: number, newX: number) => void;
+  pathEnabled?: [boolean, boolean, boolean];
 }
 
 const PATH_COLORS = [0x00d4ff, 0x00ff88, 0xff6b35];
@@ -157,7 +158,7 @@ class SimpleOrbitControls {
   dispose() { this._listeners.forEach(fn => fn()); }
 }
 
-export default function Factory3DScene({ simState, width, height, serverPositions, onServerMove }: Factory3DSceneProps) {
+export default function Factory3DScene({ simState, width, height, serverPositions, onServerMove, pathEnabled }: Factory3DSceneProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<{
     renderer: THREE.WebGLRenderer;
@@ -186,6 +187,9 @@ export default function Factory3DScene({ simState, width, height, serverPosition
 
   const serverPositionsRef = useRef(serverPositions);
   useEffect(() => { serverPositionsRef.current = serverPositions; }, [serverPositions]);
+
+  const pathEnabledRef = useRef(pathEnabled);
+  useEffect(() => { pathEnabledRef.current = pathEnabled; }, [pathEnabled]);
 
   const buildScene = useCallback(() => {
     const mount = mountRef.current;
@@ -451,6 +455,35 @@ export default function Factory3DScene({ simState, width, height, serverPosition
       }
     });
   }, [serverPositions]);
+
+  // Dim/restore path groups when enabled state changes
+  useEffect(() => {
+    if (!sceneRef.current || !pathEnabled) return;
+    const { pathGroups, serverGlows } = sceneRef.current;
+    pathEnabled.forEach((enabled, i) => {
+      const group = pathGroups[i];
+      if (!group) return;
+      // Traverse all meshes and lines in the path group
+      group.traverse(child => {
+        const mesh = child as THREE.Mesh;
+        if (mesh.isMesh && mesh.material) {
+          const mat = mesh.material as THREE.MeshStandardMaterial;
+          mat.opacity = enabled ? 1.0 : 0.12;
+          mat.transparent = !enabled;
+        }
+        const line = child as THREE.LineSegments;
+        if (line.isLine && line.material) {
+          const mat = line.material as THREE.LineBasicMaterial;
+          mat.opacity = enabled ? 1.0 : 0.08;
+          mat.transparent = !enabled;
+        }
+      });
+      // Dim the server glow
+      if (serverGlows[i]) {
+        serverGlows[i].intensity = enabled ? serverGlows[i].intensity : 0;
+      }
+    });
+  }, [pathEnabled]);
 
   // Camera preset buttons handler
   useEffect(() => {

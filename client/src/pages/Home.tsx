@@ -26,6 +26,18 @@ export default function Home() {
   const [activeView, setActiveView] = useState<'3d' | 'split'>('3d');
   const [showExport, setShowExport] = useState(false);
   const [serverPositions, setServerPositions] = useState<[number, number, number]>([4.5, 4.5, 4.5]);
+  const [pathEnabled, setPathEnabled] = useState<[boolean, boolean, boolean]>([true, true, true]);
+
+  const handleTogglePath = useCallback((idx: number) => {
+    setPathEnabled(prev => {
+      const next: [boolean, boolean, boolean] = [...prev] as [boolean, boolean, boolean];
+      // Prevent disabling all paths
+      if (next.filter(Boolean).length === 1 && next[idx]) return prev;
+      next[idx] = !next[idx];
+      simRef.current?.updateParams({ pathEnabled: next });
+      return next;
+    });
+  }, []);
 
   const simRef = useRef<FactorySimulation | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -253,6 +265,7 @@ export default function Home() {
               height={sceneSize.height}
               serverPositions={serverPositions}
               onServerMove={handleServerMove}
+              pathEnabled={pathEnabled}
             />
 
             {/* Factory background overlay */}
@@ -432,6 +445,8 @@ export default function Home() {
             onRunPrediction={handleRunPrediction}
             isRunning={simState.running}
             simTime={simState.time}
+            pathEnabled={pathEnabled}
+            onTogglePath={handleTogglePath}
           />
         </div>
       </div>

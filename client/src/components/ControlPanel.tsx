@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { SimParams } from '@/lib/simulationEngine';
 
+// ---- Types ----
+
 interface ControlPanelProps {
   params: SimParams;
   onParamsChange: (params: Partial<SimParams>) => void;
@@ -10,6 +12,8 @@ interface ControlPanelProps {
   onRunPrediction: () => void;
   isRunning: boolean;
   simTime: number;
+  pathEnabled: [boolean, boolean, boolean];
+  onTogglePath: (idx: number) => void;
 }
 
 interface ParamRowProps {
@@ -23,6 +27,8 @@ interface ParamRowProps {
   tooltip?: string;
   onChange: (v: number) => void;
 }
+
+// ---- Sub-components ----
 
 function ParamRow({ label, value, min, max, step, unit = '', color = '#00d4ff', tooltip, onChange }: ParamRowProps) {
   const pct = ((value - min) / (max - min)) * 100;
@@ -62,23 +68,7 @@ function ParamRow({ label, value, min, max, step, unit = '', color = '#00d4ff', 
   );
 }
 
-function SectionHeader({ label, color }: { label: string; color: string }) {
-  return (
-    <div
-      className="flex items-center gap-2 mb-3 pb-1.5"
-      style={{ borderBottom: `1px solid ${color}22` }}
-    >
-      <div className="w-1 h-3 rounded-full" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
-      <span
-        className="text-xs font-bold tracking-widest"
-        style={{ color, fontFamily: 'Orbitron, sans-serif', fontSize: '9px', letterSpacing: '0.12em' }}
-      >
-        {label}
-      </span>
-    </div>
-  );
-}
-
+// Tabs definition
 const TABS = [
   { id: 'paths',   label: 'PATHS'   },
   { id: 'system',  label: 'SYSTEM'  },
@@ -86,6 +76,15 @@ const TABS = [
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
+
+// Per-path metadata
+const PATH_DEFS = [
+  { label: 'PATH 1', lane: 'LEFT LANE',   color: 'var(--cyan)',   mean: 'serviceMean1' as const, std: 'serviceStd1' as const, cap: 'queueMax1' as const },
+  { label: 'PATH 2', lane: 'CENTRE LANE', color: 'var(--green)',  mean: 'serviceMean2' as const, std: 'serviceStd2' as const, cap: 'queueMax2' as const },
+  { label: 'PATH 3', lane: 'RIGHT LANE',  color: 'var(--orange)', mean: 'serviceMean3' as const, std: 'serviceStd3' as const, cap: 'queueMax3' as const },
+];
+
+// ---- Main Component ----
 
 export default function ControlPanel({
   params,
@@ -96,9 +95,12 @@ export default function ControlPanel({
   onRunPrediction,
   isRunning,
   simTime,
+  pathEnabled,
+  onTogglePath,
 }: ControlPanelProps) {
   const [activeTab, setActiveTab] = useState<TabId>('paths');
 
+  // Format sim time as HH:MM:SS
   const hh = String(Math.floor(simTime / 60)).padStart(2, '0');
   const mm = String(Math.floor(simTime % 60)).padStart(2, '0');
   const ss = String(Math.floor((simTime * 60) % 60)).padStart(2, '0');
@@ -196,7 +198,7 @@ export default function ControlPanel({
         </button>
       </div>
 
-      {/* Tabs */}
+      {/* Tab Bar */}
       <div className="flex" style={{ borderBottom: '1px solid var(--border-dim)' }}>
         {TABS.map(tab => (
           <button
@@ -220,48 +222,169 @@ export default function ControlPanel({
       {/* Tab Content */}
       <div className="flex-1 overflow-y-auto px-4 py-4">
 
+        {/* PATHS tab — per-line service params with enable/disable toggle */}
         {activeTab === 'paths' && (
           <div className="fade-in-up">
-            {[
-              { label: 'PATH 1 — LEFT LANE',   color: 'var(--cyan)',   mean: 'serviceMean1' as const, std: 'serviceStd1' as const, cap: 'queueMax1' as const },
-              { label: 'PATH 2 — CENTRE LANE', color: 'var(--green)',  mean: 'serviceMean2' as const, std: 'serviceStd2' as const, cap: 'queueMax2' as const },
-              { label: 'PATH 3 — RIGHT LANE',  color: 'var(--orange)', mean: 'serviceMean3' as const, std: 'serviceStd3' as const, cap: 'queueMax3' as const },
-            ].map((path, i) => (
-              <div key={i} className="mb-5">
-                <SectionHeader label={path.label} color={path.color} />
-                <ParamRow
-                  label="SERVICE MEAN"
-                  value={params[path.mean]}
-                  min={5} max={60} step={1} unit=" min"
-                  color={path.color}
-                  tooltip="Mean processing time per unit (Normal distribution)"
-                  onChange={v => onParamsChange({ [path.mean]: v })}
-                />
-                <ParamRow
-                  label="STD DEVIATION"
-                  value={params[path.std]}
-                  min={1} max={15} step={0.5} unit=" min"
-                  color={path.color}
-                  tooltip="Variability in service time"
-                  onChange={v => onParamsChange({ [path.std]: v })}
-                />
-                <ParamRow
-                  label="QUEUE CAPACITY"
-                  value={params[path.cap]}
-                  min={1} max={30} step={1} unit=" units"
-                  color={path.color}
-                  tooltip="Maximum entities waiting in queue"
-                  onChange={v => onParamsChange({ [path.cap]: v })}
-                />
-              </div>
-            ))}
+            {PATH_DEFS.map((path, i) => {
+              const active = pathEnabled[i];
+              return (
+                <div
+                  key={i}
+                  className="mb-5 rounded"
+                  style={{
+                    padding: '10px',
+                    background: active ? 'transparent' : 'rgba(255,61,87,0.03)',
+                    border: `1px solid ${active ? path.color + '18' : 'rgba(255,61,87,0.12)'}`,
+                    transition: 'all 0.25s',
+                  }}
+                >
+                  {/* Path header row with toggle */}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-1 h-3 rounded-full"
+                        style={{
+                          background: active ? path.color : '#2a3a5a',
+                          boxShadow: active ? `0 0 6px ${path.color}` : 'none',
+                          transition: 'all 0.2s',
+                        }}
+                      />
+                      <div>
+                        <span
+                          style={{
+                            color: active ? path.color : '#2a3a5a',
+                            fontFamily: 'Orbitron, sans-serif',
+                            fontSize: '9px',
+                            letterSpacing: '0.12em',
+                            transition: 'color 0.2s',
+                            display: 'block',
+                          }}
+                        >
+                          {path.label}
+                        </span>
+                        <span
+                          style={{
+                            color: active ? '#3a5070' : '#1e2d40',
+                            fontFamily: 'Space Grotesk, sans-serif',
+                            fontSize: '8px',
+                            letterSpacing: '0.08em',
+                          }}
+                        >
+                          {path.lane}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Toggle switch — enable or disable this production line */}
+                    <button
+                      onClick={() => onTogglePath(i)}
+                      title={active ? 'Disable this production line' : 'Enable this production line'}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '4px 9px',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        background: active ? `${path.color}15` : 'rgba(255,61,87,0.08)',
+                        border: `1px solid ${active ? path.color + '40' : 'rgba(255,61,87,0.3)'}`,
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      {/* Toggle track */}
+                      <div
+                        style={{
+                          width: '26px',
+                          height: '13px',
+                          borderRadius: '7px',
+                          position: 'relative',
+                          background: active ? path.color : 'rgba(255,61,87,0.35)',
+                          transition: 'background 0.2s',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {/* Toggle thumb */}
+                        <div
+                          style={{
+                            position: 'absolute',
+                            top: '2.5px',
+                            left: active ? '15px' : '2.5px',
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            background: '#ffffff',
+                            transition: 'left 0.2s',
+                            boxShadow: active ? `0 0 4px ${path.color}` : 'none',
+                          }}
+                        />
+                      </div>
+                      <span
+                        style={{
+                          fontFamily: 'Rajdhani, sans-serif',
+                          fontSize: '9px',
+                          fontWeight: 700,
+                          letterSpacing: '0.1em',
+                          color: active ? path.color : '#ff3d57',
+                          minWidth: '28px',
+                        }}
+                      >
+                        {active ? 'ACTIVE' : 'OFF'}
+                      </span>
+                    </button>
+                  </div>
+
+                  {/* Param sliders — dimmed when path is disabled */}
+                  <div
+                    style={{
+                      opacity: active ? 1 : 0.3,
+                      pointerEvents: active ? 'auto' : 'none',
+                      transition: 'opacity 0.25s',
+                    }}
+                  >
+                    <ParamRow
+                      label="SERVICE MEAN"
+                      value={params[path.mean]}
+                      min={5} max={60} step={1} unit=" min"
+                      color={path.color}
+                      tooltip="Mean processing time per unit (Normal distribution)"
+                      onChange={v => onParamsChange({ [path.mean]: v })}
+                    />
+                    <ParamRow
+                      label="STD DEVIATION"
+                      value={params[path.std]}
+                      min={1} max={15} step={0.5} unit=" min"
+                      color={path.color}
+                      tooltip="Variability in service time"
+                      onChange={v => onParamsChange({ [path.std]: v })}
+                    />
+                    <ParamRow
+                      label="QUEUE CAPACITY"
+                      value={params[path.cap]}
+                      min={1} max={30} step={1} unit=" units"
+                      color={path.color}
+                      tooltip="Maximum entities waiting in queue"
+                      onChange={v => onParamsChange({ [path.cap]: v })}
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
+        {/* SYSTEM tab — arrival rates, resource pool, sim speed */}
         {activeTab === 'system' && (
           <div className="fade-in-up">
             <div className="mb-5">
-              <SectionHeader label="ARRIVAL RATES" color="var(--amber)" />
+              <div
+                className="flex items-center gap-2 mb-3 pb-1.5"
+                style={{ borderBottom: '1px solid rgba(255,179,0,0.22)' }}
+              >
+                <div className="w-1 h-3 rounded-full" style={{ background: 'var(--amber)', boxShadow: '0 0 6px var(--amber)' }} />
+                <span style={{ color: 'var(--amber)', fontFamily: 'Orbitron, sans-serif', fontSize: '9px', letterSpacing: '0.12em' }}>
+                  ARRIVAL RATES
+                </span>
+              </div>
               <ParamRow
                 label="GENERATOR 1 MEAN"
                 value={params.arrivalRate1}
@@ -281,7 +404,15 @@ export default function ControlPanel({
             </div>
 
             <div className="mb-5">
-              <SectionHeader label="RESOURCE POOL" color="var(--purple)" />
+              <div
+                className="flex items-center gap-2 mb-3 pb-1.5"
+                style={{ borderBottom: '1px solid rgba(179,136,255,0.22)' }}
+              >
+                <div className="w-1 h-3 rounded-full" style={{ background: 'var(--purple)', boxShadow: '0 0 6px var(--purple)' }} />
+                <span style={{ color: 'var(--purple)', fontFamily: 'Orbitron, sans-serif', fontSize: '9px', letterSpacing: '0.12em' }}>
+                  RESOURCE POOL
+                </span>
+              </div>
               <ParamRow
                 label="POOL CAPACITY"
                 value={params.resourceCapacity}
@@ -310,29 +441,35 @@ export default function ControlPanel({
             </div>
 
             <div className="mb-5">
-              <SectionHeader label="SIMULATION SPEED" color="#88ccff" />
+              <div
+                className="flex items-center gap-2 mb-3 pb-1.5"
+                style={{ borderBottom: '1px solid rgba(136,204,255,0.22)' }}
+              >
+                <div className="w-1 h-3 rounded-full" style={{ background: '#88ccff', boxShadow: '0 0 6px #88ccff' }} />
+                <span style={{ color: '#88ccff', fontFamily: 'Orbitron, sans-serif', fontSize: '9px', letterSpacing: '0.12em' }}>
+                  SIMULATION SPEED
+                </span>
+              </div>
               <ParamRow
                 label="SPEED MULTIPLIER"
                 value={params.simSpeed}
                 min={1} max={30} step={1} unit="×"
                 color="#88ccff"
-                tooltip="Real-time simulation speed factor"
+                tooltip="1 real second = N sim minutes"
                 onChange={v => onParamsChange({ simSpeed: v })}
               />
-              <div
-                className="grid grid-cols-5 gap-1 mt-2"
-              >
-                {[1, 5, 10, 20, 30].map(s => (
+              <div className="flex gap-1 mt-1">
+                {[1, 5, 10, 20].map(s => (
                   <button
                     key={s}
                     onClick={() => onParamsChange({ simSpeed: s })}
-                    className="py-1 rounded text-xs font-bold transition-all"
+                    className="flex-1 py-1 rounded text-xs font-bold transition-all"
                     style={{
-                      background: params.simSpeed === s ? 'rgba(136,204,255,0.2)' : 'var(--surface-3)',
-                      border: `1px solid ${params.simSpeed === s ? 'rgba(136,204,255,0.5)' : 'var(--border-dim)'}`,
+                      background: params.simSpeed === s ? 'rgba(136,204,255,0.15)' : 'var(--surface-3)',
+                      border: `1px solid ${params.simSpeed === s ? 'rgba(136,204,255,0.4)' : 'var(--border-dim)'}`,
                       color: params.simSpeed === s ? '#88ccff' : '#3a5070',
                       fontFamily: 'Space Mono',
-                      fontSize: '10px',
+                      fontSize: '9px',
                     }}
                   >
                     {s}×
@@ -343,111 +480,119 @@ export default function ControlPanel({
           </div>
         )}
 
+        {/* ROUTING tab — path probability distribution */}
         {activeTab === 'routing' && (
           <div className="fade-in-up">
-            <SectionHeader label="BRANCH ROUTING" color="#ff88aa" />
-
-            <div
-              className="text-xs p-2.5 rounded mb-4"
-              style={{ background: 'rgba(255,136,170,0.05)', border: '1px solid rgba(255,136,170,0.15)', color: '#6a7f99', fontFamily: 'Space Grotesk', lineHeight: 1.6 }}
-            >
-              Adjust P1 &amp; P2 — P3 is auto-calculated to maintain Σ = 1.0
-            </div>
-
-            <ParamRow
-              label="PATH 1 PROBABILITY"
-              value={params.routeProb1}
-              min={0.1} max={0.8} step={0.01}
-              color="var(--cyan)"
-              onChange={v => {
-                const p2 = Math.min(params.routeProb2, 1 - v - 0.1);
-                onParamsChange({ routeProb1: v, routeProb2: p2, routeProb3: Math.max(0.1, 1 - v - p2) });
-              }}
-            />
-            <ParamRow
-              label="PATH 2 PROBABILITY"
-              value={params.routeProb2}
-              min={0.1} max={0.8} step={0.01}
-              color="var(--green)"
-              onChange={v => {
-                const p1 = Math.min(params.routeProb1, 1 - v - 0.1);
-                onParamsChange({ routeProb2: v, routeProb1: p1, routeProb3: Math.max(0.1, 1 - v - p1) });
-              }}
-            />
-
-            <div className="mb-4">
-              <div className="flex justify-between items-center mb-1.5">
-                <span className="text-xs tracking-wide" style={{ color: '#6a7f99', fontFamily: 'Space Grotesk', fontSize: '10px', letterSpacing: '0.06em' }}>
-                  PATH 3 PROBABILITY (AUTO)
-                </span>
-                <span className="text-xs font-bold" style={{ color: 'var(--orange)', fontFamily: 'Space Mono', fontSize: '11px' }}>
-                  {p3Prob.toFixed(2)}
+            <div className="mb-5">
+              <div
+                className="flex items-center gap-2 mb-3 pb-1.5"
+                style={{ borderBottom: '1px solid rgba(0,212,255,0.22)' }}
+              >
+                <div className="w-1 h-3 rounded-full" style={{ background: 'var(--cyan)', boxShadow: '0 0 6px var(--cyan)' }} />
+                <span style={{ color: 'var(--cyan)', fontFamily: 'Orbitron, sans-serif', fontSize: '9px', letterSpacing: '0.12em' }}>
+                  BRANCH ROUTING
                 </span>
               </div>
-              <div className="h-0.5 rounded" style={{ background: `linear-gradient(to right, var(--orange) ${p3Prob * 100}%, var(--surface-4) 0%)` }} />
-            </div>
+              <ParamRow
+                label="PATH 1 PROBABILITY"
+                value={params.routeProb1}
+                min={0} max={1} step={0.01} unit=""
+                color="var(--cyan)"
+                tooltip="Fraction of entities routed to Path 1"
+                onChange={v => onParamsChange({ routeProb1: Math.min(v, 1 - params.routeProb2) })}
+              />
+              <ParamRow
+                label="PATH 2 PROBABILITY"
+                value={params.routeProb2}
+                min={0} max={1} step={0.01} unit=""
+                color="var(--green)"
+                tooltip="Fraction of entities routed to Path 2"
+                onChange={v => onParamsChange({ routeProb2: Math.min(v, 1 - params.routeProb1) })}
+              />
 
-            {/* Visual distribution bar */}
-            <div className="p-3 rounded" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-dim)' }}>
-              <div className="text-xs mb-2" style={{ color: '#3a5070', fontFamily: 'Rajdhani', letterSpacing: '0.08em', fontSize: '10px' }}>
-                ROUTING DISTRIBUTION
-              </div>
-              <div className="flex h-5 rounded overflow-hidden gap-px">
-                {[
-                  { prob: params.routeProb1, color: 'var(--cyan)' },
-                  { prob: params.routeProb2, color: 'var(--green)' },
-                  { prob: p3Prob,             color: 'var(--orange)' },
-                ].map((seg, i) => (
+              {/* Path 3 is derived automatically */}
+              <div className="mb-3">
+                <div className="flex justify-between items-center mb-1.5">
+                  <span style={{ color: '#6a7f99', fontFamily: 'Space Grotesk', fontSize: '10px', letterSpacing: '0.06em' }}>
+                    PATH 3 PROBABILITY
+                  </span>
+                  <span style={{ color: 'var(--orange)', fontFamily: 'Space Mono', fontSize: '11px', fontWeight: 700 }}>
+                    {p3Prob.toFixed(2)}
+                  </span>
+                </div>
+                <div className="h-1.5 rounded overflow-hidden" style={{ background: 'var(--surface-4)' }}>
                   <div
-                    key={i}
-                    className="transition-all duration-300 flex items-center justify-center"
-                    style={{ width: `${seg.prob * 100}%`, background: seg.color, opacity: 0.75 }}
-                  >
-                    {seg.prob > 0.15 && (
-                      <span style={{ color: '#07090f', fontFamily: 'Space Mono', fontSize: '9px', fontWeight: 700 }}>
-                        {(seg.prob * 100).toFixed(0)}%
-                      </span>
-                    )}
-                  </div>
-                ))}
+                    className="h-full rounded"
+                    style={{ width: `${p3Prob * 100}%`, background: 'var(--orange)', opacity: 0.6 }}
+                  />
+                </div>
+                <div style={{ color: '#2a3a5a', fontFamily: 'Space Grotesk', fontSize: '9px', marginTop: '4px' }}>
+                  Auto-calculated: 1 − P1 − P2
+                </div>
               </div>
-              <div className="flex justify-between mt-1.5">
-                {[
-                  { label: 'P1', color: 'var(--cyan)',   val: params.routeProb1 },
-                  { label: 'P2', color: 'var(--green)',  val: params.routeProb2 },
-                  { label: 'P3', color: 'var(--orange)', val: p3Prob },
-                ].map((p, i) => (
-                  <div key={i} className="flex items-center gap-1">
-                    <div className="w-1.5 h-1.5 rounded-full" style={{ background: p.color }} />
-                    <span style={{ color: p.color, fontFamily: 'Space Mono', fontSize: '9px' }}>
-                      {p.label} {(p.val * 100).toFixed(0)}%
+
+              {/* Visual distribution bar */}
+              <div className="mt-4 p-3 rounded" style={{ background: 'var(--surface-3)', border: '1px solid var(--border-dim)' }}>
+                <div style={{ color: '#3a5070', fontFamily: 'Rajdhani', fontSize: '9px', letterSpacing: '0.1em', marginBottom: '8px' }}>
+                  ROUTING DISTRIBUTION
+                </div>
+                <div className="flex h-4 rounded overflow-hidden gap-0.5">
+                  {[
+                    { prob: params.routeProb1, color: 'var(--cyan)',   label: 'P1' },
+                    { prob: params.routeProb2, color: 'var(--green)',  label: 'P2' },
+                    { prob: p3Prob,            color: 'var(--orange)', label: 'P3' },
+                  ].map((seg, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-center text-xs font-bold rounded"
+                      style={{
+                        width: `${seg.prob * 100}%`,
+                        background: seg.color,
+                        opacity: 0.75,
+                        fontFamily: 'Space Mono',
+                        fontSize: '8px',
+                        color: '#07090f',
+                        minWidth: seg.prob > 0.05 ? undefined : '0px',
+                        overflow: 'hidden',
+                        transition: 'width 0.3s',
+                      }}
+                    >
+                      {seg.prob > 0.08 ? seg.label : ''}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-between mt-1">
+                  {[
+                    { v: params.routeProb1, c: 'var(--cyan)'   },
+                    { v: params.routeProb2, c: 'var(--green)'  },
+                    { v: p3Prob,            c: 'var(--orange)' },
+                  ].map((s, i) => (
+                    <span key={i} style={{ color: s.c, fontFamily: 'Space Mono', fontSize: '9px' }}>
+                      {Math.round(s.v * 100)}%
                     </span>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Prediction Button */}
-      <div className="px-4 py-4" style={{ borderTop: '1px solid var(--border-dim)' }}>
+      {/* Run Prediction button */}
+      <div className="px-4 py-3" style={{ borderTop: '1px solid var(--border-dim)' }}>
         <button
           onClick={onRunPrediction}
-          className="w-full py-3 text-xs font-bold tracking-widest rounded transition-all"
+          className="w-full py-2.5 text-xs font-bold tracking-wider rounded transition-all"
           style={{
-            background: 'linear-gradient(135deg, rgba(0,212,255,0.12) 0%, rgba(0,230,118,0.08) 100%)',
-            border: '1px solid rgba(0,212,255,0.35)',
-            color: 'var(--cyan)',
-            fontFamily: 'Orbitron, sans-serif',
-            letterSpacing: '0.15em',
-            boxShadow: '0 0 20px rgba(0,212,255,0.08), inset 0 1px 0 rgba(0,212,255,0.1)',
-            fontSize: '10px',
+            background: 'linear-gradient(135deg, rgba(179,136,255,0.15), rgba(0,212,255,0.08))',
+            border: '1px solid rgba(179,136,255,0.4)',
+            color: 'var(--purple)',
+            fontFamily: 'Rajdhani, sans-serif',
+            letterSpacing: '0.12em',
+            boxShadow: '0 0 12px rgba(179,136,255,0.08)',
           }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 0 30px rgba(0,212,255,0.2), inset 0 1px 0 rgba(0,212,255,0.15)'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 0 20px rgba(0,212,255,0.08), inset 0 1px 0 rgba(0,212,255,0.1)'; }}
         >
-          ▶▶  RUN PREDICTION (8H)
+          ▷ RUN PREDICTION (8h)
         </button>
       </div>
     </div>

@@ -24,6 +24,8 @@ export interface SimParams {
   routeProb3: number;   // 0.34
   // Simulation speed
   simSpeed: number;     // multiplier
+  // Path enable/disable
+  pathEnabled: [boolean, boolean, boolean];
 }
 
 export interface PathState {
@@ -253,11 +255,24 @@ export class FactorySimulation {
   }
 
   private generateEntity(time: number) {
+    const enabled = this.params.pathEnabled;
+    const enabledCount = enabled.filter(Boolean).length;
+    if (enabledCount === 0) return;
+
+    // Redistribute routing among enabled paths
+    const probs = [this.params.routeProb1, this.params.routeProb2, this.params.routeProb3];
+    const activeProbs = probs.map((p, i) => enabled[i] ? p : 0);
+    const total = activeProbs.reduce((a, b) => a + b, 0) || 1;
+    const norm = activeProbs.map(p => p / total);
+
     const r = Math.random();
-    let path: 0 | 1 | 2;
-    if (r < this.params.routeProb1) path = 0;
-    else if (r < this.params.routeProb1 + this.params.routeProb2) path = 1;
-    else path = 2;
+    let path: 0 | 1 | 2 = 0;
+    let acc = 0;
+    for (let i = 0; i < 3; i++) {
+      acc += norm[i];
+      if (r < acc) { path = i as 0|1|2; break; }
+    }
+    if (!enabled[path]) return;
 
     const entity: SimEntity = {
       id: `e${this.nextEntityId++}`,
@@ -451,4 +466,5 @@ export const defaultParams: SimParams = {
   routeProb2: 0.33,
   routeProb3: 0.34,
   simSpeed: 5,
+  pathEnabled: [true, true, true],
 };
