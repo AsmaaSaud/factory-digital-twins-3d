@@ -1,8 +1,5 @@
-// =============================================================
 // Factory Simulation Engine
 // Based on 3-Path JaamSim model (simvc2.cfg)
-// Design: Industrial Control Room - Neon Factory HUD
-// =============================================================
 
 export interface SimParams {
   // Arrival rates (mean inter-arrival time in minutes)

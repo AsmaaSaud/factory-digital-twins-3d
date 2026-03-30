@@ -1,8 +1,3 @@
-// =============================================================
-// StatsPanel - Live Statistics & Telemetry
-// Design: Industrial HUD - Neon Factory Control Room
-// =============================================================
-
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 import type { SimState } from '@/lib/simulationEngine';
 
@@ -19,10 +14,11 @@ export interface PredictionResult {
   bottleneck: number;
 }
 
-const PATH_COLORS = ['#00d4ff', '#00ff88', '#ff6b35'];
-const PATH_NAMES = ['PATH 1', 'PATH 2', 'PATH 3'];
+const PATH_COLORS = ['var(--cyan)', 'var(--green)', 'var(--orange)'];
+const PATH_HEX    = ['#00d4ff', '#00e676', '#ff6d35'];
+const PATH_NAMES  = ['PATH 1', 'PATH 2', 'PATH 3'];
 
-function MetricCard({ label, value, unit, color, sub }: {
+function KpiCard({ label, value, unit, color, sub }: {
   label: string;
   value: string | number;
   unit?: string;
@@ -31,69 +27,61 @@ function MetricCard({ label, value, unit, color, sub }: {
 }) {
   return (
     <div
-      className="p-3 rounded"
+      className="p-2.5 rounded flex flex-col justify-between"
       style={{
-        background: 'rgba(13,18,32,0.8)',
-        border: `1px solid ${color ? color + '33' : '#1a2540'}`,
+        background: 'var(--surface-2)',
+        border: `1px solid ${color ? color + '28' : 'var(--border-dim)'}`,
+        minHeight: '62px',
       }}
     >
-      <div className="text-xs mb-1" style={{ color: '#8899bb', fontFamily: 'Rajdhani, sans-serif', letterSpacing: '0.05em' }}>
+      <div className="text-xs mb-1 tracking-wide" style={{ color: '#4a6070', fontFamily: 'Rajdhani, sans-serif', fontSize: '9px', letterSpacing: '0.08em' }}>
         {label}
       </div>
-      <div
-        className="text-xl font-bold"
-        style={{
-          color: color || '#00d4ff',
-          fontFamily: 'Share Tech Mono, monospace',
-          textShadow: color ? `0 0 8px ${color}66` : '0 0 8px rgba(0,212,255,0.4)',
-        }}
-      >
-        {value}{unit && <span className="text-sm ml-1" style={{ color: '#8899bb' }}>{unit}</span>}
+      <div>
+        <span
+          className="text-lg font-bold tabular-nums"
+          style={{ color: color || 'var(--cyan)', fontFamily: 'Space Mono, monospace', lineHeight: 1 }}
+        >
+          {value}
+        </span>
+        {unit && (
+          <span className="text-xs ml-1" style={{ color: '#4a6070', fontFamily: 'Space Grotesk' }}>{unit}</span>
+        )}
       </div>
-      {sub && <div className="text-xs mt-1" style={{ color: '#556677' }}>{sub}</div>}
+      {sub && <div className="text-xs mt-0.5" style={{ color: '#3a5070', fontSize: '9px', fontFamily: 'Space Grotesk' }}>{sub}</div>}
     </div>
   );
 }
 
-function PathStatusBar({ path, pathIdx, simState }: {
-  path: SimState['paths'][0];
-  pathIdx: number;
-  simState: SimState;
-}) {
-  const color = PATH_COLORS[pathIdx];
-  const queueMax = [simState.paths[0].queueLength, simState.paths[1].queueLength, simState.paths[2].queueLength];
-  const maxQ = Math.max(...queueMax, 1);
+function PathRow({ path, pathIdx }: { path: SimState['paths'][0]; pathIdx: number }) {
+  const color = PATH_HEX[pathIdx];
+  const queuePct = Math.min(100, (path.queueLength / 10) * 100);
 
   return (
     <div
-      className="p-3 rounded mb-2"
-      style={{
-        background: 'rgba(13,18,32,0.8)',
-        border: `1px solid ${color}22`,
-      }}
+      className="p-2.5 rounded mb-2"
+      style={{ background: 'var(--surface-2)', border: `1px solid ${color}18` }}
     >
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <div
-            className="w-2 h-2 rounded-full"
-            style={{ background: color, boxShadow: `0 0 6px ${color}` }}
-          />
-          <span className="text-xs font-bold" style={{ color, fontFamily: 'Orbitron, sans-serif', fontSize: '10px' }}>
+          <div className="w-1.5 h-1.5 rounded-full" style={{ background: color, boxShadow: `0 0 5px ${color}` }} />
+          <span className="text-xs font-bold" style={{ color, fontFamily: 'Orbitron, sans-serif', fontSize: '9px', letterSpacing: '0.1em' }}>
             {PATH_NAMES[pathIdx]}
           </span>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs" style={{ color: '#8899bb', fontFamily: 'Share Tech Mono' }}>
+        <div className="flex items-center gap-2">
+          <span className="text-xs tabular-nums" style={{ color: '#5a7090', fontFamily: 'Space Mono', fontSize: '10px' }}>
             Q: <span style={{ color }}>{path.queueLength}</span>
           </span>
           <div
-            className="px-2 py-0.5 rounded text-xs font-bold"
+            className="px-1.5 py-0.5 rounded text-xs font-bold"
             style={{
-              background: path.serverBusy ? `${color}22` : 'rgba(255,51,102,0.1)',
-              border: `1px solid ${path.serverBusy ? color : '#ff3366'}`,
-              color: path.serverBusy ? color : '#ff3366',
+              background: path.serverBusy ? `${color}18` : 'rgba(255,61,87,0.1)',
+              border: `1px solid ${path.serverBusy ? color + '50' : 'rgba(255,61,87,0.4)'}`,
+              color: path.serverBusy ? color : 'var(--red)',
               fontFamily: 'Rajdhani, sans-serif',
-              fontSize: '10px',
+              fontSize: '9px',
+              letterSpacing: '0.08em',
             }}
           >
             {path.serverBusy ? 'ACTIVE' : 'IDLE'}
@@ -101,32 +89,25 @@ function PathStatusBar({ path, pathIdx, simState }: {
         </div>
       </div>
 
-      {/* Queue bar */}
-      <div className="flex items-center gap-2">
-        <span className="text-xs w-12" style={{ color: '#556677', fontFamily: 'Share Tech Mono', fontSize: '10px' }}>QUEUE</span>
-        <div className="flex-1 h-2 rounded" style={{ background: '#1a2540' }}>
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-xs w-10" style={{ color: '#3a5070', fontFamily: 'Space Mono', fontSize: '9px' }}>QUEUE</span>
+        <div className="flex-1 h-1.5 rounded overflow-hidden" style={{ background: 'var(--surface-4)' }}>
           <div
-            className="h-full rounded transition-all duration-300"
-            style={{
-              width: `${Math.min(100, (path.queueLength / 10) * 100)}%`,
-              background: `linear-gradient(to right, ${color}, ${color}88)`,
-              boxShadow: `0 0 4px ${color}66`,
-            }}
+            className="h-full rounded transition-all duration-500"
+            style={{ width: `${queuePct}%`, background: `linear-gradient(to right, ${color}, ${color}88)`, boxShadow: `0 0 4px ${color}55` }}
           />
         </div>
-        <span className="text-xs w-8 text-right" style={{ color, fontFamily: 'Share Tech Mono', fontSize: '10px' }}>
+        <span className="text-xs w-5 text-right tabular-nums" style={{ color, fontFamily: 'Space Mono', fontSize: '9px' }}>
           {path.queueLength}
         </span>
       </div>
 
-      {/* Processed */}
-      <div className="flex items-center gap-2 mt-1">
-        <span className="text-xs w-12" style={{ color: '#556677', fontFamily: 'Share Tech Mono', fontSize: '10px' }}>DONE</span>
-        <span className="text-xs" style={{ color: '#8899bb', fontFamily: 'Share Tech Mono', fontSize: '11px' }}>
-          {path.entitiesProcessed} units
+      <div className="flex items-center justify-between">
+        <span className="text-xs" style={{ color: '#3a5070', fontFamily: 'Space Grotesk', fontSize: '9px' }}>
+          {path.entitiesProcessed} units processed
         </span>
         {path.avgServiceTime > 0 && (
-          <span className="text-xs ml-auto" style={{ color: '#556677', fontFamily: 'Share Tech Mono', fontSize: '10px' }}>
+          <span className="text-xs" style={{ color: '#3a5070', fontFamily: 'Space Mono', fontSize: '9px' }}>
             avg {path.avgServiceTime.toFixed(1)} min
           </span>
         )}
@@ -135,165 +116,121 @@ function PathStatusBar({ path, pathIdx, simState }: {
   );
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
-    return (
-      <div
-        className="p-2 rounded text-xs"
-        style={{
-          background: 'rgba(10,14,26,0.95)',
-          border: '1px solid #1a2540',
-          fontFamily: 'Share Tech Mono, monospace',
-        }}
-      >
-        <div style={{ color: '#8899bb' }}>t={label}min</div>
-        {payload.map((p: any) => (
-          <div key={p.dataKey} style={{ color: p.color }}>
-            {p.name}: {p.value}
-          </div>
-        ))}
-      </div>
-    );
-  }
-  return null;
+const ChartTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div
+      className="p-2 rounded text-xs"
+      style={{ background: 'rgba(7,9,15,0.97)', border: '1px solid var(--border-subtle)', fontFamily: 'Space Mono, monospace' }}
+    >
+      <div style={{ color: '#5a7090', marginBottom: 4 }}>t = {label} min</div>
+      {payload.map((p: any) => (
+        <div key={p.dataKey} style={{ color: p.color }}>
+          {p.name}: {typeof p.value === 'number' ? p.value.toFixed(1) : p.value}
+        </div>
+      ))}
+    </div>
+  );
 };
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="text-xs font-bold tracking-widest mb-2"
+      style={{ color: '#3a5070', fontFamily: 'Orbitron, sans-serif', fontSize: '9px', letterSpacing: '0.14em' }}
+    >
+      {children}
+    </div>
+  );
+}
 
 export default function StatsPanel({ simState, predictionResult }: StatsPanelProps) {
   const throughputPerHour = simState.time > 0
     ? (simState.totalSinked / (simState.time / 60)).toFixed(1)
     : '0.0';
 
-  const resourcePct = Math.round((simState.resourceUsed / Math.max(1, simState.resourceUsed + simState.resourceAvailable)) * 100);
+  const resourceTotal = simState.resourceUsed + simState.resourceAvailable;
+  const resourcePct = resourceTotal > 0
+    ? Math.round((simState.resourceUsed / resourceTotal) * 100)
+    : 0;
 
   return (
     <div
       className="flex flex-col h-full overflow-y-auto"
-      style={{ background: 'rgba(10,14,26,0.95)', fontFamily: 'Inter, sans-serif' }}
+      style={{ background: 'var(--surface-1)' }}
     >
-      {/* Top KPIs */}
-      <div className="p-3" style={{ borderBottom: '1px solid #1a2540' }}>
-        <div
-          className="text-xs font-bold mb-2 tracking-widest"
-          style={{ color: '#8899bb', fontFamily: 'Orbitron, sans-serif' }}
-        >
-          LIVE TELEMETRY
-        </div>
+      {/* KPI Row */}
+      <div className="p-3" style={{ borderBottom: '1px solid var(--border-dim)' }}>
+        <SectionLabel>LIVE TELEMETRY</SectionLabel>
         <div className="grid grid-cols-4 gap-2">
-          <MetricCard
-            label="GENERATED"
-            value={simState.totalGenerated}
-            color="#ffd700"
-          />
-          <MetricCard
-            label="COMPLETED"
-            value={simState.totalSinked}
-            color="#00ff88"
-          />
-          <MetricCard
-            label="THROUGHPUT"
-            value={throughputPerHour}
-            unit="/hr"
-            color="#00d4ff"
-          />
-          <MetricCard
-            label="RESOURCE"
-            value={`${resourcePct}%`}
-            color="#aa88ff"
-            sub={`${simState.resourceUsed} used`}
-          />
+          <KpiCard label="GENERATED"  value={simState.totalGenerated}   color="#ffb300" />
+          <KpiCard label="COMPLETED"  value={simState.totalSinked}      color="var(--green)" />
+          <KpiCard label="THROUGHPUT" value={throughputPerHour} unit="/hr" color="var(--cyan)" />
+          <KpiCard label="RESOURCE"   value={`${resourcePct}%`} sub={`${simState.resourceUsed} in use`} color="var(--purple)" />
         </div>
       </div>
 
       {/* Telemetry Chart */}
-      <div className="p-3" style={{ borderBottom: '1px solid #1a2540' }}>
-        <div
-          className="text-xs font-bold mb-2 tracking-widest"
-          style={{ color: '#8899bb', fontFamily: 'Orbitron, sans-serif' }}
-        >
-          QUEUE + THROUGHPUT HISTORY
-        </div>
-        <div style={{ height: 120 }}>
+      <div className="p-3" style={{ borderBottom: '1px solid var(--border-dim)' }}>
+        <SectionLabel>QUEUE &amp; THROUGHPUT HISTORY</SectionLabel>
+        <div style={{ height: 110 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={simState.throughputHistory} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+            <LineChart data={simState.throughputHistory} margin={{ top: 4, right: 4, left: -22, bottom: 0 }}>
               <XAxis
                 dataKey="time"
-                tick={{ fill: '#445566', fontSize: 9, fontFamily: 'Share Tech Mono' }}
+                tick={{ fill: '#2a3f55', fontSize: 8, fontFamily: 'Space Mono' }}
                 tickLine={false}
                 axisLine={false}
               />
               <YAxis
-                tick={{ fill: '#445566', fontSize: 9, fontFamily: 'Share Tech Mono' }}
+                tick={{ fill: '#2a3f55', fontSize: 8, fontFamily: 'Space Mono' }}
                 tickLine={false}
                 axisLine={false}
               />
-              <Tooltip content={<CustomTooltip />} />
-              <Line
-                type="monotone"
-                dataKey="queueTotal"
-                stroke="#ff6b35"
-                strokeWidth={1.5}
-                dot={false}
-                name="Queue"
-              />
-              <Line
-                type="monotone"
-                dataKey="throughput"
-                stroke="#00d4ff"
-                strokeWidth={1.5}
-                dot={false}
-                name="Throughput"
-              />
+              <Tooltip content={<ChartTooltip />} />
+              <Line type="monotone" dataKey="queueTotal" stroke="#ff6d35" strokeWidth={1.5} dot={false} name="Queue" />
+              <Line type="monotone" dataKey="throughput"  stroke="#00d4ff" strokeWidth={1.5} dot={false} name="Throughput" />
             </LineChart>
           </ResponsiveContainer>
+        </div>
+        <div className="flex gap-4 mt-1.5 justify-end">
+          {[{ label: 'Queue', color: '#ff6d35' }, { label: 'Throughput', color: '#00d4ff' }].map(l => (
+            <div key={l.label} className="flex items-center gap-1">
+              <div className="w-3 h-0.5 rounded" style={{ background: l.color }} />
+              <span style={{ color: '#3a5070', fontFamily: 'Space Grotesk', fontSize: '9px' }}>{l.label}</span>
+            </div>
+          ))}
         </div>
       </div>
 
       {/* Path Status */}
-      <div className="p-3" style={{ borderBottom: '1px solid #1a2540' }}>
-        <div
-          className="text-xs font-bold mb-2 tracking-widest"
-          style={{ color: '#8899bb', fontFamily: 'Orbitron, sans-serif' }}
-        >
-          PATH STATUS
-        </div>
+      <div className="p-3" style={{ borderBottom: '1px solid var(--border-dim)' }}>
+        <SectionLabel>PRODUCTION LINE STATUS</SectionLabel>
         {simState.paths.map((path, idx) => (
-          <PathStatusBar key={idx} path={path} pathIdx={idx} simState={simState} />
+          <PathRow key={idx} path={path} pathIdx={idx} />
         ))}
       </div>
 
       {/* Prediction Results */}
       {predictionResult && (
-        <div className="p-3">
-          <div
-            className="text-xs font-bold mb-2 tracking-widest flex items-center gap-2"
-            style={{ color: '#8899bb', fontFamily: 'Orbitron, sans-serif' }}
-          >
-            PREDICTION RESULTS
-            <span
-              className="px-2 py-0.5 rounded text-xs"
-              style={{
-                background: 'rgba(0,212,255,0.1)',
-                border: '1px solid #00d4ff',
-                color: '#00d4ff',
-                fontFamily: 'Rajdhani',
-                fontSize: '9px',
-              }}
+        <div className="p-3 fade-in-up">
+          <div className="flex items-center gap-2 mb-3">
+            <SectionLabel>PREDICTION RESULTS</SectionLabel>
+            <div
+              className="px-2 py-0.5 rounded"
+              style={{ background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.25)', color: 'var(--cyan)', fontFamily: 'Rajdhani', fontSize: '9px', letterSpacing: '0.1em', marginTop: '-2px' }}
             >
-              8H SIM
-            </span>
+              8H FORECAST
+            </div>
           </div>
 
-          {/* Bottleneck warning */}
           <div
-            className="p-2 rounded mb-3 flex items-center gap-2"
-            style={{
-              background: 'rgba(255,107,53,0.08)',
-              border: '1px solid rgba(255,107,53,0.3)',
-            }}
+            className="p-2.5 rounded mb-3 flex items-center gap-2"
+            style={{ background: 'rgba(255,61,87,0.06)', border: '1px solid rgba(255,61,87,0.25)' }}
           >
-            <span style={{ color: '#ff6b35', fontSize: '14px' }}>⚠</span>
-            <span className="text-xs" style={{ color: '#ff6b35', fontFamily: 'Rajdhani, sans-serif' }}>
-              BOTTLENECK: {PATH_NAMES[predictionResult.bottleneck]} (highest queue)
+            <span style={{ color: 'var(--red)', fontSize: '13px' }}>⚠</span>
+            <span className="text-xs" style={{ color: 'var(--red)', fontFamily: 'Space Grotesk', lineHeight: 1.4 }}>
+              <strong>BOTTLENECK:</strong> {PATH_NAMES[predictionResult.bottleneck]} — highest average queue
             </span>
           </div>
 
@@ -302,58 +239,55 @@ export default function StatsPanel({ simState, predictionResult }: StatsPanelPro
               <div
                 key={i}
                 className="p-2 rounded text-center"
-                style={{
-                  background: 'rgba(13,18,32,0.8)',
-                  border: `1px solid ${PATH_COLORS[i]}33`,
-                }}
+                style={{ background: 'var(--surface-2)', border: `1px solid ${PATH_HEX[i]}28` }}
               >
-                <div className="text-xs mb-1" style={{ color: '#8899bb', fontFamily: 'Rajdhani', fontSize: '9px' }}>
+                <div className="text-xs mb-1" style={{ color: '#3a5070', fontFamily: 'Rajdhani', fontSize: '9px', letterSpacing: '0.06em' }}>
                   {PATH_NAMES[i]}
                 </div>
-                <div
-                  className="text-lg font-bold"
-                  style={{ color: PATH_COLORS[i], fontFamily: 'Share Tech Mono' }}
-                >
+                <div className="text-xl font-bold tabular-nums" style={{ color: PATH_HEX[i], fontFamily: 'Space Mono' }}>
                   {q}
                 </div>
-                <div className="text-xs" style={{ color: '#556677', fontSize: '9px' }}>queue</div>
+                <div className="text-xs" style={{ color: '#3a5070', fontSize: '9px' }}>avg queue</div>
               </div>
             ))}
           </div>
 
-          <div style={{ height: 100 }}>
+          <div style={{ height: 90 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={[
-                  { name: 'P1', value: predictionResult.pathThroughputs[0], fill: '#00d4ff' },
-                  { name: 'P2', value: predictionResult.pathThroughputs[1], fill: '#00ff88' },
-                  { name: 'P3', value: predictionResult.pathThroughputs[2], fill: '#ff6b35' },
+                  { name: 'P1', value: predictionResult.pathThroughputs[0] },
+                  { name: 'P2', value: predictionResult.pathThroughputs[1] },
+                  { name: 'P3', value: predictionResult.pathThroughputs[2] },
                 ]}
-                margin={{ top: 5, right: 5, left: -20, bottom: 0 }}
+                margin={{ top: 4, right: 4, left: -22, bottom: 0 }}
               >
-                <XAxis dataKey="name" tick={{ fill: '#445566', fontSize: 9, fontFamily: 'Share Tech Mono' }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fill: '#445566', fontSize: 9, fontFamily: 'Share Tech Mono' }} tickLine={false} axisLine={false} />
-                <Tooltip content={<CustomTooltip />} />
+                <XAxis dataKey="name" tick={{ fill: '#2a3f55', fontSize: 8, fontFamily: 'Space Mono' }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fill: '#2a3f55', fontSize: 8, fontFamily: 'Space Mono' }} tickLine={false} axisLine={false} />
+                <Tooltip content={<ChartTooltip />} />
                 <Bar dataKey="value" name="Units" radius={[2, 2, 0, 0]}>
-                  {[0, 1, 2].map(i => (
-                    <Cell key={i} fill={PATH_COLORS[i]} fillOpacity={0.8} />
-                  ))}
+                  {[0, 1, 2].map(i => <Cell key={i} fill={PATH_HEX[i]} fillOpacity={0.75} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
 
-          <div className="mt-2 flex justify-between">
-            <span className="text-xs" style={{ color: '#8899bb', fontFamily: 'Rajdhani' }}>TOTAL THROUGHPUT</span>
-            <span className="text-xs font-bold" style={{ color: '#00ff88', fontFamily: 'Share Tech Mono' }}>
-              {predictionResult.totalThroughput} units
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-xs" style={{ color: '#8899bb', fontFamily: 'Rajdhani' }}>RESOURCE UTIL.</span>
-            <span className="text-xs font-bold" style={{ color: '#aa88ff', fontFamily: 'Share Tech Mono' }}>
-              {predictionResult.resourceUtilization}%
-            </span>
+          <div
+            className="mt-3 p-2.5 rounded grid grid-cols-2 gap-2"
+            style={{ background: 'var(--surface-2)', border: '1px solid var(--border-dim)' }}
+          >
+            <div>
+              <div className="text-xs mb-0.5" style={{ color: '#3a5070', fontFamily: 'Rajdhani', fontSize: '9px', letterSpacing: '0.06em' }}>TOTAL THROUGHPUT</div>
+              <div className="text-sm font-bold tabular-nums" style={{ color: 'var(--green)', fontFamily: 'Space Mono' }}>
+                {predictionResult.totalThroughput} units
+              </div>
+            </div>
+            <div>
+              <div className="text-xs mb-0.5" style={{ color: '#3a5070', fontFamily: 'Rajdhani', fontSize: '9px', letterSpacing: '0.06em' }}>RESOURCE UTIL.</div>
+              <div className="text-sm font-bold tabular-nums" style={{ color: 'var(--purple)', fontFamily: 'Space Mono' }}>
+                {predictionResult.resourceUtilization}%
+              </div>
+            </div>
           </div>
         </div>
       )}

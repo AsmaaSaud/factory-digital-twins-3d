@@ -1,9 +1,3 @@
-// =============================================================
-// Home - 3D Factory Digital Twin Main Page
-// Design: Industrial Control Room - Neon Factory HUD
-// Layout: Header + 3D Scene (center) + Control Panel (right) + Stats (bottom)
-// =============================================================
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { FactorySimulation, defaultParams, type SimState, type SimParams } from '@/lib/simulationEngine';
 import Factory3DScene from '@/components/Factory3DScene';
@@ -11,18 +5,31 @@ import ControlPanel from '@/components/ControlPanel';
 import StatsPanel, { type PredictionResult } from '@/components/StatsPanel';
 import ExportModal from '@/components/ExportModal';
 
+const PATH_META = [
+  { label: 'PATH 1', lane: 'LEFT',   color: '#00d4ff' },
+  { label: 'PATH 2', lane: 'CENTRE', color: '#00e676' },
+  { label: 'PATH 3', lane: 'RIGHT',  color: '#ff6d35' },
+];
+
+const CAMERA_VIEWS = [
+  { id: 'iso',   label: 'ISO'   },
+  { id: 'top',   label: 'TOP'   },
+  { id: 'front', label: 'FRONT' },
+  { id: 'side',  label: 'SIDE'  },
+];
+
 export default function Home() {
   const [params, setParams] = useState<SimParams>({ ...defaultParams });
-  const [simState, setSimState] = useState<SimState>(() => {
-    const sim = new FactorySimulation(defaultParams);
-    return sim.getState();
-  });
+  const [simState, setSimState] = useState<SimState>(() => new FactorySimulation(defaultParams).getState());
   const [predictionResult, setPredictionResult] = useState<PredictionResult | null>(null);
   const [showPrediction, setShowPrediction] = useState(false);
   const [activeView, setActiveView] = useState<'3d' | 'split'>('3d');
   const [showExport, setShowExport] = useState(false);
-  // Server positions on the X axis (in 3D scene units, default 4.5)
   const [serverPositions, setServerPositions] = useState<[number, number, number]>([4.5, 4.5, 4.5]);
+
+  const simRef = useRef<FactorySimulation | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [sceneSize, setSceneSize] = useState({ width: 0, height: 0 });
 
   const handleServerMove = useCallback((pathIdx: number, newX: number) => {
     setServerPositions(prev => {
@@ -31,22 +38,14 @@ export default function Home() {
       return next;
     });
   }, []);
-  const simRef = useRef<FactorySimulation | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [sceneSize, setSceneSize] = useState({ width: 0, height: 0 });
 
-  // Initialize simulation
   useEffect(() => {
     const sim = new FactorySimulation(params);
     simRef.current = sim;
     const unsub = sim.subscribe(state => setSimState({ ...state }));
-    return () => {
-      unsub();
-      sim.pause();
-    };
+    return () => { unsub(); sim.pause(); };
   }, []);
 
-  // Handle param changes
   const handleParamsChange = useCallback((newParams: Partial<SimParams>) => {
     setParams(prev => {
       const updated = { ...prev, ...newParams };
@@ -57,6 +56,7 @@ export default function Home() {
 
   const handleStart = useCallback(() => simRef.current?.start(), []);
   const handlePause = useCallback(() => simRef.current?.pause(), []);
+
   const handleReset = useCallback(() => {
     if (simRef.current) {
       simRef.current.pause();
@@ -77,7 +77,6 @@ export default function Home() {
     }
   }, []);
 
-  // Resize observer for 3D scene
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -90,192 +89,164 @@ export default function Home() {
     return () => ro.disconnect();
   }, []);
 
-  const formatSimTime = (minutes: number) => {
-    const h = Math.floor(minutes / 60);
-    const m = Math.floor(minutes % 60);
-    return `${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m`;
-  };
+  const hh = String(Math.floor(simState.time / 60)).padStart(2, '0');
+  const mm = String(Math.floor(simState.time % 60)).padStart(2, '0');
+  const throughputPerHour = simState.time > 0
+    ? (simState.totalSinked / (simState.time / 60)).toFixed(1)
+    : '0.0';
+
+  const statsHeight = activeView === 'split' ? '45%' : (showPrediction ? '320px' : '250px');
 
   return (
     <div
-      className="flex flex-col"
-      style={{
-        height: '100vh',
-        background: '#0a0e1a',
-        overflow: 'hidden',
-        fontFamily: 'Inter, sans-serif',
-      }}
+      className="flex flex-col scanlines"
+      style={{ height: '100vh', background: 'var(--surface-0)', overflow: 'hidden' }}
     >
-      {/* ===== HEADER ===== */}
+      {/* ── HEADER ── */}
       <header
-        className="flex items-center justify-between px-6 py-2 flex-shrink-0"
+        className="flex items-center justify-between px-5 flex-shrink-0"
         style={{
-          background: 'rgba(10,14,26,0.98)',
-          borderBottom: '1px solid #1a2540',
-          height: '52px',
+          height: '50px',
+          background: 'var(--surface-1)',
+          borderBottom: '1px solid var(--border-dim)',
+          zIndex: 20,
         }}
       >
-        {/* Logo + Title */}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
+        {/* Brand + Path indicators */}
+        <div className="flex items-center gap-5">
+          <div className="flex items-center gap-2.5">
             <div
-              className="w-8 h-8 rounded flex items-center justify-center"
-              style={{
-                background: 'rgba(0,212,255,0.1)',
-                border: '1px solid #00d4ff',
-                boxShadow: '0 0 10px rgba(0,212,255,0.2)',
-              }}
+              className="w-7 h-7 rounded flex items-center justify-center flex-shrink-0"
+              style={{ background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.3)' }}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="#00d4ff" strokeWidth="1.5" fill="none"/>
-                <polyline points="9,22 9,12 15,12 15,22" stroke="#00d4ff" strokeWidth="1.5"/>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="#00d4ff" strokeWidth="1.5" fill="none" />
+                <polyline points="9,22 9,12 15,12 15,22" stroke="#00d4ff" strokeWidth="1.5" />
               </svg>
             </div>
             <div>
               <div
-                className="text-sm font-bold tracking-widest"
-                style={{ color: '#00d4ff', fontFamily: 'Orbitron, sans-serif', lineHeight: 1.2 }}
+                className="font-bold tracking-widest text-glow-cyan"
+                style={{ color: 'var(--cyan)', fontFamily: 'Orbitron, sans-serif', fontSize: '12px', lineHeight: 1.2 }}
               >
-                DIGITAL TWIN
+                FACTORY DIGITAL TWIN
               </div>
-              <div
-                className="text-xs tracking-wider"
-                style={{ color: '#445566', fontFamily: 'Rajdhani, sans-serif' }}
-              >
-                3D FACTORY SIMULATION
+              <div style={{ color: '#2a4060', fontFamily: 'Rajdhani, sans-serif', fontSize: '9px', letterSpacing: '0.14em' }}>
+                3D SIMULATION PLATFORM
               </div>
             </div>
           </div>
 
-          {/* Path indicators */}
-          <div className="flex items-center gap-3 ml-4">
-            {[
-              { label: 'PATH 1', color: '#00d4ff', q: simState.paths[0].queueLength, busy: simState.paths[0].serverBusy },
-              { label: 'PATH 2', color: '#00ff88', q: simState.paths[1].queueLength, busy: simState.paths[1].serverBusy },
-              { label: 'PATH 3', color: '#ff6b35', q: simState.paths[2].queueLength, busy: simState.paths[2].serverBusy },
-            ].map((p, i) => (
+          <div className="w-px h-6" style={{ background: 'var(--border-dim)' }} />
+
+          <div className="flex items-center gap-3">
+            {PATH_META.map((p, i) => (
               <div key={i} className="flex items-center gap-1.5">
                 <div
                   className="w-1.5 h-1.5 rounded-full"
                   style={{
                     background: p.color,
                     boxShadow: `0 0 5px ${p.color}`,
-                    opacity: p.busy ? 1 : 0.4,
+                    opacity: simState.paths[i].serverBusy ? 1 : 0.35,
                   }}
                 />
-                <span className="text-xs" style={{ color: p.color, fontFamily: 'Share Tech Mono', fontSize: '10px' }}>
-                  {p.label}
-                </span>
-                <span className="text-xs" style={{ color: '#445566', fontFamily: 'Share Tech Mono', fontSize: '10px' }}>
-                  Q:{p.q}
+                <span style={{ color: p.color, fontFamily: 'Space Mono', fontSize: '10px' }}>{p.label}</span>
+                <span style={{ color: '#2a4060', fontFamily: 'Space Mono', fontSize: '10px' }}>
+                  Q:{simState.paths[i].queueLength}
                 </span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Center - Sim time */}
+        {/* Center KPIs */}
         <div className="flex items-center gap-6">
-          <div className="text-center">
-            <div className="text-xs" style={{ color: '#445566', fontFamily: 'Rajdhani', letterSpacing: '0.1em' }}>SIM TIME</div>
-            <div
-              className="text-base font-bold"
-              style={{ color: '#ffd700', fontFamily: 'Share Tech Mono', textShadow: '0 0 8px rgba(255,215,0,0.4)' }}
-            >
-              {formatSimTime(simState.time)}
+          {[
+            { label: 'SIM TIME',   value: `${hh}h ${mm}m`,                color: '#ffb300' },
+            { label: 'COMPLETED',  value: `${simState.totalSinked} / ${simState.totalGenerated}`, color: 'var(--green)' },
+            { label: 'THROUGHPUT', value: `${throughputPerHour} /hr`,      color: 'var(--cyan)' },
+            { label: 'RESOURCE',   value: `${simState.resourceUsed} / ${params.resourceCapacity}`, color: 'var(--purple)' },
+          ].map((k, i) => (
+            <div key={i} className="text-center">
+              <div style={{ color: '#2a4060', fontFamily: 'Rajdhani', fontSize: '9px', letterSpacing: '0.1em' }}>{k.label}</div>
+              <div className="font-bold tabular-nums" style={{ color: k.color, fontFamily: 'Space Mono', fontSize: '13px' }}>{k.value}</div>
             </div>
-          </div>
-          <div className="text-center">
-            <div className="text-xs" style={{ color: '#445566', fontFamily: 'Rajdhani', letterSpacing: '0.1em' }}>ENTITIES</div>
-            <div className="text-base font-bold" style={{ color: '#00ff88', fontFamily: 'Share Tech Mono' }}>
-              {simState.totalSinked} / {simState.totalGenerated}
-            </div>
-          </div>
-          <div className="text-center">
-            <div className="text-xs" style={{ color: '#445566', fontFamily: 'Rajdhani', letterSpacing: '0.1em' }}>RESOURCE</div>
-            <div className="text-base font-bold" style={{ color: '#aa88ff', fontFamily: 'Share Tech Mono' }}>
-              {simState.resourceUsed} / {params.resourceCapacity}
-            </div>
-          </div>
+          ))}
         </div>
 
-        {/* Right - Status */}
-        <div className="flex items-center gap-3">
+        {/* Right controls */}
+        <div className="flex items-center gap-2">
           <div
-            className="flex items-center gap-2 px-3 py-1.5 rounded"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded"
             style={{
-              background: simState.running ? 'rgba(0,255,136,0.08)' : 'rgba(255,51,102,0.08)',
-              border: `1px solid ${simState.running ? '#00ff88' : '#ff3366'}`,
+              background: simState.running ? 'rgba(0,230,118,0.07)' : 'rgba(255,61,87,0.07)',
+              border: `1px solid ${simState.running ? 'rgba(0,230,118,0.3)' : 'rgba(255,61,87,0.3)'}`,
             }}
           >
             <div
-              className="w-2 h-2 rounded-full pulse-dot"
-              style={{ background: simState.running ? '#00ff88' : '#ff3366' }}
+              className="w-1.5 h-1.5 rounded-full pulse-dot"
+              style={{ background: simState.running ? 'var(--green)' : 'var(--red)', color: simState.running ? 'var(--green)' : 'var(--red)' }}
             />
             <span
-              className="text-xs font-bold tracking-wider"
+              className="font-bold"
               style={{
-                color: simState.running ? '#00ff88' : '#ff3366',
-                fontFamily: 'Rajdhani, sans-serif',
+                color: simState.running ? 'var(--green)' : 'var(--red)',
+                fontFamily: 'Rajdhani',
+                fontSize: '10px',
                 letterSpacing: '0.1em',
               }}
             >
               {simState.running ? 'RUNNING' : 'STOPPED'}
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            <div
-              className="text-xs px-2 py-1 rounded"
-              style={{
-                background: 'rgba(0,212,255,0.08)',
-                border: '1px solid #1a2540',
-                color: '#445566',
-                fontFamily: 'Share Tech Mono',
-              }}
-            >
-              {params.simSpeed}x SPEED
-            </div>
-            <button
-              onClick={() => setActiveView(v => v === '3d' ? 'split' : '3d')}
-              className="text-xs px-2 py-1 rounded transition-all"
-              style={{
-                background: activeView === 'split' ? 'rgba(0,212,255,0.15)' : 'rgba(0,212,255,0.05)',
-                border: '1px solid #1a2540',
-                color: activeView === 'split' ? '#00d4ff' : '#445566',
-                fontFamily: 'Rajdhani',
-              }}
-            >
-              {activeView === '3d' ? '⊞ SPLIT' : '⬛ 3D ONLY'}
-            </button>
-            <button
-              onClick={() => setShowExport(true)}
-              className="text-xs px-3 py-1 rounded font-bold tracking-wider transition-all hover:opacity-90"
-              style={{
-                background: 'rgba(0,255,136,0.12)',
-                border: '1px solid #00ff88',
-                color: '#00ff88',
-                fontFamily: 'Rajdhani',
-                letterSpacing: '0.08em',
-              }}
-            >
-              ↓ EXPORT
-            </button>
+
+          <div
+            className="px-2 py-1 rounded"
+            style={{ background: 'var(--surface-3)', border: '1px solid var(--border-dim)', color: '#3a5070', fontFamily: 'Space Mono', fontSize: '10px' }}
+          >
+            {params.simSpeed}×
           </div>
+
+          <button
+            onClick={() => setActiveView(v => v === '3d' ? 'split' : '3d')}
+            className="px-2.5 py-1 rounded transition-all text-xs font-bold"
+            style={{
+              background: activeView === 'split' ? 'rgba(0,212,255,0.12)' : 'var(--surface-3)',
+              border: `1px solid ${activeView === 'split' ? 'rgba(0,212,255,0.35)' : 'var(--border-dim)'}`,
+              color: activeView === 'split' ? 'var(--cyan)' : '#3a5070',
+              fontFamily: 'Rajdhani',
+              fontSize: '10px',
+              letterSpacing: '0.08em',
+            }}
+          >
+            {activeView === '3d' ? '⊞ SPLIT VIEW' : '⬛ 3D ONLY'}
+          </button>
+
+          <button
+            onClick={() => setShowExport(true)}
+            className="px-3 py-1 rounded font-bold tracking-wider transition-all"
+            style={{
+              background: 'rgba(0,230,118,0.08)',
+              border: '1px solid rgba(0,230,118,0.35)',
+              color: 'var(--green)',
+              fontFamily: 'Rajdhani',
+              fontSize: '10px',
+              letterSpacing: '0.1em',
+            }}
+          >
+            ↓ EXPORT
+          </button>
         </div>
       </header>
 
-      {/* ===== MAIN CONTENT ===== */}
+      {/* ── MAIN CONTENT ── */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* ===== 3D SCENE + STATS (left/center) ===== */}
+        {/* 3D Scene + Stats */}
         <div className="flex flex-col flex-1 overflow-hidden">
 
           {/* 3D Scene */}
-          <div
-            ref={containerRef}
-            className="flex-1 relative"
-            style={{ minHeight: 0 }}
-          >
+          <div ref={containerRef} className="flex-1 relative" style={{ minHeight: 0 }}>
             <Factory3DScene
               simState={simState}
               width={sceneSize.width}
@@ -284,170 +255,163 @@ export default function Home() {
               onServerMove={handleServerMove}
             />
 
-            {/* 3D Overlay Labels */}
-            <div
-              className="absolute top-3 left-3 pointer-events-none"
-              style={{ fontFamily: 'Orbitron, sans-serif' }}
-            >
-              <div
-                className="text-xs font-bold tracking-widest px-2 py-1 rounded"
-                style={{
-                  background: 'rgba(10,14,26,0.7)',
-                  border: '1px solid #1a2540',
-                  color: '#445566',
-                  backdropFilter: 'blur(4px)',
-                }}
-              >
-                3D FACTORY FLOOR — ISOMETRIC VIEW
-              </div>
-            </div>
-
-            {/* Server Position Indicators */}
-            <div className="absolute top-12 left-3 flex flex-col gap-1" style={{ zIndex: 10 }}>
-              {[
-                { label: 'S1', color: '#00d4ff' },
-                { label: 'S2', color: '#00ff88' },
-                { label: 'S3', color: '#ff6b35' },
-              ].map((s, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-2 px-2 py-1 rounded text-xs"
-                  style={{
-                    background: 'rgba(10,14,26,0.85)',
-                    border: `1px solid ${s.color}44`,
-                    backdropFilter: 'blur(4px)',
-                  }}
-                >
-                  <div className="w-1.5 h-1.5 rounded-full" style={{ background: s.color }} />
-                  <span style={{ color: s.color, fontFamily: 'Share Tech Mono', fontSize: '10px' }}>{s.label}</span>
-                  <span style={{ color: '#8899bb', fontFamily: 'Share Tech Mono', fontSize: '10px' }}>
-                    X={serverPositions[i].toFixed(1)}
-                  </span>
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => handleServerMove(i, Math.max(-1, serverPositions[i] - 1))}
-                      className="w-4 h-4 rounded flex items-center justify-center text-xs"
-                      style={{ background: `${s.color}22`, border: `1px solid ${s.color}44`, color: s.color, lineHeight: 1 }}
-                    >-</button>
-                    <button
-                      onClick={() => handleServerMove(i, Math.min(13, serverPositions[i] + 1))}
-                      className="w-4 h-4 rounded flex items-center justify-center text-xs"
-                      style={{ background: `${s.color}22`, border: `1px solid ${s.color}44`, color: s.color, lineHeight: 1 }}
-                    >+</button>
-                    <button
-                      onClick={() => handleServerMove(i, 4.5)}
-                      className="px-1 h-4 rounded flex items-center justify-center"
-                      style={{ background: 'rgba(255,215,0,0.1)', border: '1px solid #ffd70044', color: '#ffd700', fontFamily: 'Share Tech Mono', fontSize: '9px' }}
-                    >RST</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Path labels overlay */}
-            <div className="absolute top-3 right-3 flex flex-col gap-1 pointer-events-none">
-              {[
-                { name: 'PATH 1 — LEFT LANE', color: '#00d4ff', mean: params.serviceMean1 },
-                { name: 'PATH 2 — CENTRE LANE', color: '#00ff88', mean: params.serviceMean2 },
-                { name: 'PATH 3 — RIGHT LANE', color: '#ff6b35', mean: params.serviceMean3 },
-              ].map((p, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-2 px-2 py-1 rounded text-xs"
-                  style={{
-                    background: 'rgba(10,14,26,0.8)',
-                    border: `1px solid ${p.color}33`,
-                    backdropFilter: 'blur(4px)',
-                  }}
-                >
-                  <div className="w-1.5 h-1.5 rounded-full" style={{ background: p.color }} />
-                  <span style={{ color: p.color, fontFamily: 'Rajdhani', letterSpacing: '0.05em' }}>{p.name}</span>
-                  <span style={{ color: '#445566', fontFamily: 'Share Tech Mono', fontSize: '10px' }}>
-                    μ={p.mean}min
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            {/* Factory background image - subtle overlay */}
+            {/* Factory background overlay */}
             <div
               className="absolute inset-0 pointer-events-none"
               style={{
                 backgroundImage: `url('https://d2xsxph8kpxj0f.cloudfront.net/310519663087850125/4RFvn4pBUquTWRmpQXtVMy/factory-bg-hrFTE9XeCmVBqhpcnMRpbk.webp')`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
-                opacity: 0.08,
+                opacity: 0.06,
                 mixBlendMode: 'screen',
               }}
             />
 
-            {/* Camera Controls HUD */}
+            {/* Top-left: Scene label */}
             <div
-              className="absolute bottom-3 left-3 flex flex-col gap-2"
-              style={{ zIndex: 10 }}
+              className="absolute top-3 left-3 pointer-events-none"
+              style={{ zIndex: 5 }}
             >
-              {/* View Presets */}
+              <div
+                className="px-2.5 py-1 rounded text-xs font-bold tracking-widest"
+                style={{
+                  background: 'rgba(7,9,15,0.75)',
+                  border: '1px solid var(--border-dim)',
+                  color: '#2a4060',
+                  fontFamily: 'Orbitron, sans-serif',
+                  fontSize: '9px',
+                  letterSpacing: '0.14em',
+                  backdropFilter: 'blur(6px)',
+                }}
+              >
+                3D FACTORY FLOOR — ISOMETRIC VIEW
+              </div>
+            </div>
+
+            {/* Top-left below label: Server position controls */}
+            <div className="absolute top-10 left-3 flex flex-col gap-1" style={{ zIndex: 10 }}>
+              {[
+                { label: 'S1', color: '#00d4ff' },
+                { label: 'S2', color: '#00e676' },
+                { label: 'S3', color: '#ff6d35' },
+              ].map((s, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-2 px-2 py-1 rounded"
+                  style={{
+                    background: 'rgba(7,9,15,0.85)',
+                    border: `1px solid ${s.color}30`,
+                    backdropFilter: 'blur(6px)',
+                  }}
+                >
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ background: s.color }} />
+                  <span style={{ color: s.color, fontFamily: 'Space Mono', fontSize: '10px', minWidth: '14px' }}>{s.label}</span>
+                  <span style={{ color: '#5a7090', fontFamily: 'Space Mono', fontSize: '10px', minWidth: '36px' }}>
+                    X={serverPositions[i].toFixed(1)}
+                  </span>
+                  <div className="flex gap-0.5">
+                    <button
+                      onClick={() => handleServerMove(i, Math.max(-1, serverPositions[i] - 1))}
+                      className="w-4 h-4 rounded flex items-center justify-center"
+                      style={{ background: `${s.color}18`, border: `1px solid ${s.color}35`, color: s.color, fontSize: '11px', lineHeight: 1 }}
+                    >−</button>
+                    <button
+                      onClick={() => handleServerMove(i, Math.min(13, serverPositions[i] + 1))}
+                      className="w-4 h-4 rounded flex items-center justify-center"
+                      style={{ background: `${s.color}18`, border: `1px solid ${s.color}35`, color: s.color, fontSize: '11px', lineHeight: 1 }}
+                    >+</button>
+                    <button
+                      onClick={() => handleServerMove(i, 4.5)}
+                      className="px-1.5 h-4 rounded flex items-center justify-center"
+                      style={{ background: 'rgba(255,179,0,0.1)', border: '1px solid rgba(255,179,0,0.3)', color: '#ffb300', fontFamily: 'Space Mono', fontSize: '8px' }}
+                    >RST</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Top-right: Path legend */}
+            <div className="absolute top-3 right-3 flex flex-col gap-1 pointer-events-none" style={{ zIndex: 5 }}>
+              {PATH_META.map((p, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-2 px-2.5 py-1 rounded"
+                  style={{
+                    background: 'rgba(7,9,15,0.8)',
+                    border: `1px solid ${p.color}25`,
+                    backdropFilter: 'blur(6px)',
+                  }}
+                >
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ background: p.color }} />
+                  <span style={{ color: p.color, fontFamily: 'Rajdhani', fontSize: '10px', letterSpacing: '0.06em' }}>
+                    {p.label} — {p.lane} LANE
+                  </span>
+                  <span style={{ color: '#2a4060', fontFamily: 'Space Mono', fontSize: '9px' }}>
+                    μ={[params.serviceMean1, params.serviceMean2, params.serviceMean3][i]}min
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Bottom-left: Camera controls */}
+            <div className="absolute bottom-3 left-3 flex flex-col gap-1.5" style={{ zIndex: 10 }}>
               <div className="flex gap-1">
-                {[
-                  { label: 'ISO', view: 'iso' },
-                  { label: 'TOP', view: 'top' },
-                  { label: 'FRONT', view: 'front' },
-                  { label: 'SIDE', view: 'side' },
-                ].map(btn => (
+                {CAMERA_VIEWS.map(btn => (
                   <button
-                    key={btn.view}
-                    onClick={() => window.dispatchEvent(new CustomEvent('factory-camera', { detail: btn.view }))}
-                    className="text-xs px-2 py-1 rounded transition-all hover:opacity-90"
+                    key={btn.id}
+                    onClick={() => window.dispatchEvent(new CustomEvent('factory-camera', { detail: btn.id }))}
+                    className="px-2 py-1 rounded transition-all"
                     style={{
-                      background: 'rgba(10,14,26,0.85)',
-                      border: '1px solid #1a2540',
-                      color: '#00d4ff',
-                      fontFamily: 'Share Tech Mono',
-                      fontSize: '10px',
-                      backdropFilter: 'blur(4px)',
+                      background: 'rgba(7,9,15,0.85)',
+                      border: '1px solid var(--border-dim)',
+                      color: 'var(--cyan)',
+                      fontFamily: 'Space Mono',
+                      fontSize: '9px',
+                      backdropFilter: 'blur(6px)',
                     }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(0,212,255,0.4)'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border-dim)'; }}
                   >
                     {btn.label}
                   </button>
                 ))}
                 <button
                   onClick={() => window.dispatchEvent(new CustomEvent('factory-camera', { detail: 'reset' }))}
-                  className="text-xs px-2 py-1 rounded transition-all hover:opacity-90"
+                  className="px-2 py-1 rounded transition-all"
                   style={{
-                    background: 'rgba(255,211,0,0.1)',
-                    border: '1px solid #ffd70066',
-                    color: '#ffd700',
-                    fontFamily: 'Share Tech Mono',
-                    fontSize: '10px',
-                    backdropFilter: 'blur(4px)',
+                    background: 'rgba(255,179,0,0.08)',
+                    border: '1px solid rgba(255,179,0,0.3)',
+                    color: '#ffb300',
+                    fontFamily: 'Space Mono',
+                    fontSize: '9px',
+                    backdropFilter: 'blur(6px)',
                   }}
                 >
                   ↺ RESET
                 </button>
               </div>
-              {/* Controls hint */}
               <div
-                className="text-xs"
+                className="px-2 py-1 rounded"
                 style={{
-                  color: '#334455',
-                  fontFamily: 'Rajdhani',
-                  background: 'rgba(10,14,26,0.7)',
-                  padding: '3px 8px',
-                  borderRadius: '4px',
-                  backdropFilter: 'blur(4px)',
-                  fontSize: '10px',
+                  background: 'rgba(7,9,15,0.75)',
+                  border: '1px solid var(--border-dim)',
+                  color: '#2a4060',
+                  fontFamily: 'Space Grotesk',
+                  fontSize: '9px',
+                  backdropFilter: 'blur(6px)',
+                  letterSpacing: '0.04em',
                 }}
               >
-                🖱 DRAG=ROTATE &nbsp;|&nbsp; SCROLL=ZOOM &nbsp;|&nbsp; RIGHT-DRAG=PAN
+                DRAG = ROTATE &nbsp;·&nbsp; SCROLL = ZOOM &nbsp;·&nbsp; RIGHT-DRAG = PAN
               </div>
             </div>
           </div>
 
-          {/* Stats Panel (bottom) */}
+          {/* Stats Panel */}
           <div
             style={{
-              height: activeView === 'split' ? '45%' : (showPrediction ? '320px' : '260px'),
-              borderTop: '1px solid #1a2540',
+              height: statsHeight,
+              borderTop: '1px solid var(--border-dim)',
               flexShrink: 0,
               transition: 'height 0.3s ease',
               overflow: 'hidden',
@@ -457,14 +421,8 @@ export default function Home() {
           </div>
         </div>
 
-        {/* ===== CONTROL PANEL (right) ===== */}
-        <div
-          style={{
-            width: '280px',
-            flexShrink: 0,
-            borderLeft: '1px solid #1a2540',
-          }}
-        >
+        {/* Control Panel */}
+        <div style={{ width: '272px', flexShrink: 0 }}>
           <ControlPanel
             params={params}
             onParamsChange={handleParamsChange}
@@ -477,6 +435,7 @@ export default function Home() {
           />
         </div>
       </div>
+
       {/* Export Modal */}
       {showExport && (
         <ExportModal

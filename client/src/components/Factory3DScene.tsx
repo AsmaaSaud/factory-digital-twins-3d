@@ -1,11 +1,5 @@
-// =============================================================
-// Factory3DScene - Three.js 3D Factory Visualization
-// Design: Industrial Control Room - Neon Factory HUD
-// Features:
-//   - 3 parallel production lines with animated entities
-//   - Full Orbit Controls (drag=rotate, scroll=zoom, right-drag=pan)
-//   - Drag & Drop for Server machines (S1/S2/S3) along X axis
-// =============================================================
+// Factory3DScene — Three.js 3D Factory Visualization
+// Features: 3 production lines, Orbit Controls, Server Drag & Drop
 
 import { useEffect, useRef, useCallback } from 'react';
 import * as THREE from 'three';
@@ -175,7 +169,8 @@ export default function Factory3DScene({ simState, width, height, serverPosition
     pathGroups: THREE.Group[];
     serverGlows: THREE.PointLight[];
     serverGroups: THREE.Group[];   // draggable server groups
-    clock: THREE.Clock;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    clock: any;
     raycaster: THREE.Raycaster;
     dragState: {
       active: boolean;
@@ -204,7 +199,7 @@ export default function Factory3DScene({ simState, width, height, serverPosition
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.setClearColor(0x0a0e1a, 1);
+    renderer.setClearColor(0x07090f, 1);
     mount.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
@@ -292,7 +287,8 @@ export default function Factory3DScene({ simState, width, height, serverPosition
       scene.add(ceilingLight);
     }
 
-    const clock = new THREE.Clock();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const clock = new (THREE as any).Clock();
     const entityMeshes = new Map<string, THREE.Mesh>();
 
     // === DRAG & DROP for Server ===

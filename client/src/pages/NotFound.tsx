@@ -1,49 +1,69 @@
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { AlertCircle, Home } from "lucide-react";
-import { useLocation } from "wouter";
+import { useLocation } from 'wouter';
 
 export default function NotFound() {
   const [, setLocation] = useLocation();
 
-  const handleGoHome = () => {
-    setLocation("/");
-  };
-
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
-      <Card className="w-full max-w-lg mx-4 shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-        <CardContent className="pt-8 pb-8 text-center">
-          <div className="flex justify-center mb-6">
-            <div className="relative">
-              <div className="absolute inset-0 bg-red-100 rounded-full animate-pulse" />
-              <AlertCircle className="relative h-16 w-16 text-red-500" />
-            </div>
-          </div>
-
-          <h1 className="text-4xl font-bold text-slate-900 mb-2">404</h1>
-
-          <h2 className="text-xl font-semibold text-slate-700 mb-4">
-            Page Not Found
-          </h2>
-
-          <p className="text-slate-600 mb-8 leading-relaxed">
-            Sorry, the page you are looking for doesn't exist.
-            <br />
-            It may have been moved or deleted.
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Button
-              onClick={handleGoHome}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
-            >
-              <Home className="w-4 h-4 mr-2" />
-              Go Home
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+    <div
+      style={{
+        height: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#07090f',
+        fontFamily: 'Space Grotesk, system-ui, sans-serif',
+        padding: '2rem',
+      }}
+    >
+      <div style={{ maxWidth: '420px', width: '100%', textAlign: 'center' }}>
+        <div
+          style={{
+            fontFamily: 'Orbitron, sans-serif',
+            fontSize: '72px',
+            fontWeight: 800,
+            color: 'rgba(0,212,255,0.1)',
+            lineHeight: 1,
+            letterSpacing: '0.1em',
+            marginBottom: '1rem',
+          }}
+        >
+          404
+        </div>
+        <div
+          style={{
+            fontFamily: 'Orbitron, sans-serif',
+            fontSize: '13px',
+            fontWeight: 700,
+            color: '#ff3d57',
+            letterSpacing: '0.18em',
+            marginBottom: '0.75rem',
+          }}
+        >
+          ROUTE NOT FOUND
+        </div>
+        <div
+          style={{ color: '#3a5070', fontSize: '13px', lineHeight: 1.6, marginBottom: '2rem' }}
+        >
+          The requested simulation route does not exist in this platform.
+        </div>
+        <button
+          onClick={() => setLocation('/')}
+          style={{
+            padding: '10px 28px',
+            background: 'rgba(0,212,255,0.08)',
+            border: '1px solid rgba(0,212,255,0.3)',
+            borderRadius: '4px',
+            color: '#00d4ff',
+            fontFamily: 'Rajdhani, sans-serif',
+            fontSize: '11px',
+            fontWeight: 700,
+            letterSpacing: '0.14em',
+            cursor: 'pointer',
+          }}
+        >
+          ← RETURN TO PLATFORM
+        </button>
+      </div>
     </div>
   );
 }
