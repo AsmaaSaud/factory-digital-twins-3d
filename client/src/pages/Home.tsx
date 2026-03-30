@@ -327,18 +327,65 @@ export default function Home() {
               }}
             />
 
-            {/* Camera hint */}
+            {/* Camera Controls HUD */}
             <div
-              className="absolute bottom-3 left-3 text-xs pointer-events-none"
-              style={{
-                color: '#334455',
-                fontFamily: 'Rajdhani, sans-serif',
-                background: 'rgba(10,14,26,0.6)',
-                padding: '4px 8px',
-                borderRadius: '4px',
-              }}
+              className="absolute bottom-3 left-3 flex flex-col gap-2"
+              style={{ zIndex: 10 }}
             >
-              3D ISOMETRIC VIEW — REAL-TIME SIMULATION
+              {/* View Presets */}
+              <div className="flex gap-1">
+                {[
+                  { label: 'ISO', view: 'iso' },
+                  { label: 'TOP', view: 'top' },
+                  { label: 'FRONT', view: 'front' },
+                  { label: 'SIDE', view: 'side' },
+                ].map(btn => (
+                  <button
+                    key={btn.view}
+                    onClick={() => window.dispatchEvent(new CustomEvent('factory-camera', { detail: btn.view }))}
+                    className="text-xs px-2 py-1 rounded transition-all hover:opacity-90"
+                    style={{
+                      background: 'rgba(10,14,26,0.85)',
+                      border: '1px solid #1a2540',
+                      color: '#00d4ff',
+                      fontFamily: 'Share Tech Mono',
+                      fontSize: '10px',
+                      backdropFilter: 'blur(4px)',
+                    }}
+                  >
+                    {btn.label}
+                  </button>
+                ))}
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent('factory-camera', { detail: 'reset' }))}
+                  className="text-xs px-2 py-1 rounded transition-all hover:opacity-90"
+                  style={{
+                    background: 'rgba(255,211,0,0.1)',
+                    border: '1px solid #ffd70066',
+                    color: '#ffd700',
+                    fontFamily: 'Share Tech Mono',
+                    fontSize: '10px',
+                    backdropFilter: 'blur(4px)',
+                  }}
+                >
+                  ↺ RESET
+                </button>
+              </div>
+              {/* Controls hint */}
+              <div
+                className="text-xs"
+                style={{
+                  color: '#334455',
+                  fontFamily: 'Rajdhani',
+                  background: 'rgba(10,14,26,0.7)',
+                  padding: '3px 8px',
+                  borderRadius: '4px',
+                  backdropFilter: 'blur(4px)',
+                  fontSize: '10px',
+                }}
+              >
+                🖱 DRAG=ROTATE &nbsp;|&nbsp; SCROLL=ZOOM &nbsp;|&nbsp; RIGHT-DRAG=PAN
+              </div>
             </div>
           </div>
 
