@@ -107,7 +107,7 @@ export default function Home() {
     ? (simState.totalSinked / (simState.time / 60)).toFixed(1)
     : '0.0';
 
-  const statsHeight = activeView === 'split' ? '45%' : (showPrediction ? '320px' : '250px');
+  const statsHeight = activeView === 'split' ? '45%' : (showPrediction ? '380px' : '310px');
 
   return (
     <div
@@ -430,7 +430,7 @@ export default function Home() {
               overflow: 'hidden',
             }}
           >
-            <StatsPanel simState={simState} predictionResult={predictionResult} />
+            <StatsPanel simState={simState} predictionResult={predictionResult} pathEnabled={pathEnabled} />
           </div>
         </div>
 

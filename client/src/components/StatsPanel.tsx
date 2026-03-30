@@ -4,6 +4,7 @@ import type { SimState } from '@/lib/simulationEngine';
 interface StatsPanelProps {
   simState: SimState;
   predictionResult: PredictionResult | null;
+  pathEnabled: [boolean, boolean, boolean];
 }
 
 export interface PredictionResult {
@@ -53,38 +54,48 @@ function KpiCard({ label, value, unit, color, sub }: {
   );
 }
 
-function PathRow({ path, pathIdx }: { path: SimState['paths'][0]; pathIdx: number }) {
+function PathRow({ path, pathIdx, enabled }: { path: SimState['paths'][0]; pathIdx: number; enabled: boolean }) {
   const color = PATH_HEX[pathIdx];
   const queuePct = Math.min(100, (path.queueLength / 10) * 100);
+
+  // Determine badge: OFF if disabled, ACTIVE if server busy, IDLE otherwise
+  const badge = !enabled ? { label: 'OFF', bg: 'rgba(255,61,87,0.1)', border: 'rgba(255,61,87,0.4)', fg: 'var(--red)' }
+    : path.serverBusy ? { label: 'ACTIVE', bg: `${color}18`, border: `${color}50`, fg: color }
+    : { label: 'IDLE', bg: 'rgba(58,80,112,0.15)', border: 'rgba(58,80,112,0.35)', fg: '#3a5070' };
 
   return (
     <div
       className="p-2.5 rounded mb-2"
-      style={{ background: 'var(--surface-2)', border: `1px solid ${color}18` }}
+      style={{
+        background: enabled ? 'var(--surface-2)' : 'rgba(255,61,87,0.03)',
+        border: `1px solid ${enabled ? color + '18' : 'rgba(255,61,87,0.12)'}`,
+        opacity: enabled ? 1 : 0.6,
+        transition: 'all 0.25s',
+      }}
     >
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <div className="w-1.5 h-1.5 rounded-full" style={{ background: color, boxShadow: `0 0 5px ${color}` }} />
-          <span className="text-xs font-bold" style={{ color, fontFamily: 'Orbitron, sans-serif', fontSize: '9px', letterSpacing: '0.1em' }}>
+          <div className="w-1.5 h-1.5 rounded-full" style={{ background: enabled ? color : '#ff3d57', boxShadow: enabled ? `0 0 5px ${color}` : 'none' }} />
+          <span className="text-xs font-bold" style={{ color: enabled ? color : '#ff3d57', fontFamily: 'Orbitron, sans-serif', fontSize: '9px', letterSpacing: '0.1em' }}>
             {PATH_NAMES[pathIdx]}
           </span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs tabular-nums" style={{ color: '#5a7090', fontFamily: 'Space Mono', fontSize: '10px' }}>
-            Q: <span style={{ color }}>{path.queueLength}</span>
+            Q: <span style={{ color: enabled ? color : '#3a5070' }}>{path.queueLength}</span>
           </span>
           <div
             className="px-1.5 py-0.5 rounded text-xs font-bold"
             style={{
-              background: path.serverBusy ? `${color}18` : 'rgba(255,61,87,0.1)',
-              border: `1px solid ${path.serverBusy ? color + '50' : 'rgba(255,61,87,0.4)'}`,
-              color: path.serverBusy ? color : 'var(--red)',
+              background: badge.bg,
+              border: `1px solid ${badge.border}`,
+              color: badge.fg,
               fontFamily: 'Rajdhani, sans-serif',
               fontSize: '9px',
               letterSpacing: '0.08em',
             }}
           >
-            {path.serverBusy ? 'ACTIVE' : 'IDLE'}
+            {badge.label}
           </div>
         </div>
       </div>
@@ -144,7 +155,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function StatsPanel({ simState, predictionResult }: StatsPanelProps) {
+export default function StatsPanel({ simState, predictionResult, pathEnabled }: StatsPanelProps) {
   const throughputPerHour = simState.time > 0
     ? (simState.totalSinked / (simState.time / 60)).toFixed(1)
     : '0.0';
@@ -173,7 +184,7 @@ export default function StatsPanel({ simState, predictionResult }: StatsPanelPro
       {/* Telemetry Chart */}
       <div className="p-3" style={{ borderBottom: '1px solid var(--border-dim)' }}>
         <SectionLabel>QUEUE &amp; THROUGHPUT HISTORY</SectionLabel>
-        <div style={{ height: 110 }}>
+        <div style={{ height: 130, minHeight: 130 }}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={simState.throughputHistory} margin={{ top: 4, right: 4, left: -22, bottom: 0 }}>
               <XAxis
@@ -207,7 +218,7 @@ export default function StatsPanel({ simState, predictionResult }: StatsPanelPro
       <div className="p-3" style={{ borderBottom: '1px solid var(--border-dim)' }}>
         <SectionLabel>PRODUCTION LINE STATUS</SectionLabel>
         {simState.paths.map((path, idx) => (
-          <PathRow key={idx} path={path} pathIdx={idx} />
+          <PathRow key={idx} path={path} pathIdx={idx} enabled={pathEnabled[idx]} />
         ))}
       </div>
 
