@@ -5,20 +5,25 @@ import { useEffect, useRef, useCallback } from 'react';
 import * as THREE from 'three';
 import type { SimState } from '@/lib/simulationEngine';
 
+export interface ServerPos { x: number; z: number; }
+
 interface Factory3DSceneProps {
   simState: SimState;
   width?: number;
   height?: number;
-  serverPositions?: [number, number, number];
-  onServerMove?: (pathIdx: number, newX: number) => void;
+  serverPositions?: [ServerPos, ServerPos, ServerPos];
+  onServerMove?: (pathIdx: number, pos: ServerPos) => void;
   pathEnabled?: [boolean, boolean, boolean];
 }
 
 const PATH_COLORS = [0x00d4ff, 0x00ff88, 0xff6b35];
 const PATH_Z = [-6, 0, 6];
 const DEFAULT_SERVER_X = 4.5;
+const DEFAULT_SERVER_Z = 0;   // local Z offset within path group
 const SERVER_MIN_X = -1;
 const SERVER_MAX_X = 13;
+const SERVER_MIN_Z = -3;      // left/right offset within path lane
+const SERVER_MAX_Z = 3;
 
 // ---- Minimal Orbit Controls ----
 class SimpleOrbitControls {
@@ -257,15 +262,15 @@ export default function Factory3DScene({ simState, width, height, serverPosition
 
       const color = PATH_COLORS[pathIdx];
       const colorHex = new THREE.Color(color);
-      const initX = serverPositionsRef.current?.[pathIdx] ?? DEFAULT_SERVER_X;
+      const initPos = serverPositionsRef.current?.[pathIdx] ?? { x: DEFAULT_SERVER_X, z: DEFAULT_SERVER_Z };
 
       buildConveyor(group, -14, -4, 0, colorHex, 0.3);
       buildStation(group, -2, 0, color, 'Q' + (pathIdx + 1), 0.8, 0.8, 0.6);
       buildStation(group, 1, 0, color, 'SZ', 0.8, 0.8, 0.6);
 
-      // Server as draggable group
+      // Server as draggable group — supports X (along path) and Z (across path)
       const serverGroup = new THREE.Group();
-      serverGroup.position.set(initX, 0, 0);
+      serverGroup.position.set(initPos.x, 0, initPos.z);
       serverGroup.userData = { pathIdx, isDraggable: true };
       buildMachineInGroup(serverGroup, 0, 0, color, pathIdx + 1);
       group.add(serverGroup);
@@ -275,7 +280,7 @@ export default function Factory3DScene({ simState, width, height, serverPosition
       buildStation(group, 14.5, 0, color, 'R' + (pathIdx + 1), 0.8, 0.8, 0.6);
 
       const glow = new THREE.PointLight(color, 0, 4);
-      glow.position.set(initX, 1.5, 0);
+      glow.position.set(initPos.x, 1.5, initPos.z);
       group.add(glow);
       serverGlows.push(glow);
     });
@@ -363,14 +368,18 @@ export default function Factory3DScene({ simState, width, height, serverPosition
       const intersect = new THREE.Vector3();
       raycaster.ray.intersectPlane(dragState.dragPlane, intersect);
 
-      // Project to X axis along the path
+      // Project to X and Z axes (drag freely in the horizontal plane)
       const pathGroup = pathGroups[dragState.pathIdx];
       const localX = intersect.x - pathGroup.position.x;
+      const localZ = intersect.z - pathGroup.position.z;
       const clampedX = Math.max(SERVER_MIN_X, Math.min(SERVER_MAX_X, localX));
+      const clampedZ = Math.max(SERVER_MIN_Z, Math.min(SERVER_MAX_Z, localZ));
 
       const sg = serverGroups[dragState.pathIdx];
       sg.position.x = clampedX;
+      sg.position.z = clampedZ;
       serverGlows[dragState.pathIdx].position.x = clampedX;
+      serverGlows[dragState.pathIdx].position.z = clampedZ;
 
       // Update cursor
       renderer.domElement.style.cursor = 'grabbing';
@@ -391,8 +400,8 @@ export default function Factory3DScene({ simState, width, height, serverPosition
       controls.enabled = true;
       renderer.domElement.style.cursor = 'grab';
 
-      // Notify parent
-      onServerMoveRef.current?.(dragState.pathIdx, finalX);
+      // Notify parent with both X and Z
+      onServerMoveRef.current?.(dragState.pathIdx, { x: finalX, z: sg.position.z });
       dragState = null;
       if (sceneRef.current) sceneRef.current.dragState = null;
     };
@@ -444,14 +453,16 @@ export default function Factory3DScene({ simState, width, height, serverPosition
     };
   }, []);
 
-  // Sync server positions from props
+  // Sync server positions (X and Z) from props
   useEffect(() => {
     if (!sceneRef.current || !serverPositions) return;
     const { serverGroups, serverGlows } = sceneRef.current;
-    serverPositions.forEach((x, i) => {
+    serverPositions.forEach((pos, i) => {
       if (serverGroups[i]) {
-        serverGroups[i].position.x = x;
-        serverGlows[i].position.x = x;
+        serverGroups[i].position.x = pos.x;
+        serverGroups[i].position.z = pos.z;
+        serverGlows[i].position.x = pos.x;
+        serverGlows[i].position.z = pos.z;
       }
     });
   }, [serverPositions]);

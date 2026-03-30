@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { FactorySimulation, defaultParams, type SimState, type SimParams } from '@/lib/simulationEngine';
-import Factory3DScene from '@/components/Factory3DScene';
+import Factory3DScene, { type ServerPos } from '@/components/Factory3DScene';
 import ControlPanel from '@/components/ControlPanel';
 import StatsPanel, { type PredictionResult } from '@/components/StatsPanel';
 import ExportModal from '@/components/ExportModal';
@@ -25,7 +25,11 @@ export default function Home() {
   const [showPrediction, setShowPrediction] = useState(false);
   const [activeView, setActiveView] = useState<'3d' | 'split'>('3d');
   const [showExport, setShowExport] = useState(false);
-  const [serverPositions, setServerPositions] = useState<[number, number, number]>([4.5, 4.5, 4.5]);
+  const [serverPositions, setServerPositions] = useState<[ServerPos, ServerPos, ServerPos]>([
+    { x: 4.5, z: 0 },
+    { x: 4.5, z: 0 },
+    { x: 4.5, z: 0 },
+  ]);
   const [pathEnabled, setPathEnabled] = useState<[boolean, boolean, boolean]>([true, true, true]);
 
   const handleTogglePath = useCallback((idx: number) => {
@@ -43,10 +47,10 @@ export default function Home() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [sceneSize, setSceneSize] = useState({ width: 0, height: 0 });
 
-  const handleServerMove = useCallback((pathIdx: number, newX: number) => {
+  const handleServerMove = useCallback((pathIdx: number, pos: ServerPos) => {
     setServerPositions(prev => {
-      const next: [number, number, number] = [...prev] as [number, number, number];
-      next[pathIdx] = parseFloat(newX.toFixed(2));
+      const next: [ServerPos, ServerPos, ServerPos] = [...prev] as [ServerPos, ServerPos, ServerPos];
+      next[pathIdx] = { x: parseFloat(pos.x.toFixed(2)), z: parseFloat(pos.z.toFixed(2)) };
       return next;
     });
   }, []);
@@ -319,26 +323,41 @@ export default function Home() {
                 >
                   <div className="w-1.5 h-1.5 rounded-full" style={{ background: s.color }} />
                   <span style={{ color: s.color, fontFamily: 'Space Mono', fontSize: '10px', minWidth: '14px' }}>{s.label}</span>
-                  <span style={{ color: '#5a7090', fontFamily: 'Space Mono', fontSize: '10px', minWidth: '36px' }}>
-                    X={serverPositions[i].toFixed(1)}
-                  </span>
+                  {/* X axis controls */}
+                  <span style={{ color: '#5a7090', fontFamily: 'Space Mono', fontSize: '9px' }}>X={serverPositions[i].x.toFixed(1)}</span>
                   <div className="flex gap-0.5">
                     <button
-                      onClick={() => handleServerMove(i, Math.max(-1, serverPositions[i] - 1))}
+                      onClick={() => handleServerMove(i, { x: Math.max(-1, serverPositions[i].x - 1), z: serverPositions[i].z })}
                       className="w-4 h-4 rounded flex items-center justify-center"
                       style={{ background: `${s.color}18`, border: `1px solid ${s.color}35`, color: s.color, fontSize: '11px', lineHeight: 1 }}
                     >−</button>
                     <button
-                      onClick={() => handleServerMove(i, Math.min(13, serverPositions[i] + 1))}
+                      onClick={() => handleServerMove(i, { x: Math.min(13, serverPositions[i].x + 1), z: serverPositions[i].z })}
                       className="w-4 h-4 rounded flex items-center justify-center"
                       style={{ background: `${s.color}18`, border: `1px solid ${s.color}35`, color: s.color, fontSize: '11px', lineHeight: 1 }}
                     >+</button>
-                    <button
-                      onClick={() => handleServerMove(i, 4.5)}
-                      className="px-1.5 h-4 rounded flex items-center justify-center"
-                      style={{ background: 'rgba(255,179,0,0.1)', border: '1px solid rgba(255,179,0,0.3)', color: '#ffb300', fontFamily: 'Space Mono', fontSize: '8px' }}
-                    >RST</button>
                   </div>
+                  {/* Z axis controls (left/right) */}
+                  <span style={{ color: '#5a7090', fontFamily: 'Space Mono', fontSize: '9px' }}>Z={serverPositions[i].z.toFixed(1)}</span>
+                  <div className="flex gap-0.5">
+                    <button
+                      onClick={() => handleServerMove(i, { x: serverPositions[i].x, z: Math.max(-3, serverPositions[i].z - 1) })}
+                      className="w-4 h-4 rounded flex items-center justify-center"
+                      style={{ background: `${s.color}18`, border: `1px solid ${s.color}35`, color: s.color, fontSize: '10px', lineHeight: 1 }}
+                      title="Move left"
+                    >◄</button>
+                    <button
+                      onClick={() => handleServerMove(i, { x: serverPositions[i].x, z: Math.min(3, serverPositions[i].z + 1) })}
+                      className="w-4 h-4 rounded flex items-center justify-center"
+                      style={{ background: `${s.color}18`, border: `1px solid ${s.color}35`, color: s.color, fontSize: '10px', lineHeight: 1 }}
+                      title="Move right"
+                    >►</button>
+                  </div>
+                  <button
+                    onClick={() => handleServerMove(i, { x: 4.5, z: 0 })}
+                    className="px-1.5 h-4 rounded flex items-center justify-center"
+                    style={{ background: 'rgba(255,179,0,0.1)', border: '1px solid rgba(255,179,0,0.3)', color: '#ffb300', fontFamily: 'Space Mono', fontSize: '8px' }}
+                  >RST</button>
                 </div>
               ))}
             </div>
