@@ -535,97 +535,138 @@ export default function ControlPanel({
         )}
 
         {/* ROUTING tab — branch probability distribution */}
-        {activeTab === 'routing' && (
-          <div className="fade-in-up">
-            <div className="mb-5">
-              <div className="flex items-center gap-2 mb-3 pb-1.5" style={{ borderBottom: '1px solid rgba(0,212,255,0.22)' }}>
-                <div style={{ width: '3px', height: '12px', borderRadius: '2px', background: 'var(--cyan)', boxShadow: '0 0 6px var(--cyan)' }} />
-                <span style={{ color: 'var(--cyan)', fontFamily: 'Orbitron, sans-serif', fontSize: '9px', letterSpacing: '0.12em' }}>
-                  BRANCH ROUTING
-                </span>
-              </div>
+        {activeTab === 'routing' && (() => {
+          // Compute effective probabilities: disabled paths get 0, enabled paths share 100%
+          const rawProbs = [params.routeProb1, params.routeProb2, p3Prob];
+          const effectiveProbs = rawProbs.map((p, i) => pathEnabled[i] ? p : 0);
+          const effectiveTotal = effectiveProbs.reduce((a, b) => a + b, 0) || 1;
+          const normalizedProbs = effectiveProbs.map(p => p / effectiveTotal);
 
-              <SliderInput
-                label="PATH 1 PROBABILITY"
-                value={params.routeProb1}
-                min={0} max={1} step={0.01}
-                color="var(--cyan)"
-                tooltip="Fraction of entities routed to Path 1 (Left Lane)"
-                onChange={v => onParamsChange({ routeProb1: Math.min(v, 1 - params.routeProb2) })}
-              />
-              <SliderInput
-                label="PATH 2 PROBABILITY"
-                value={params.routeProb2}
-                min={0} max={1} step={0.01}
-                color="var(--green)"
-                tooltip="Fraction of entities routed to Path 2 (Centre Lane)"
-                onChange={v => onParamsChange({ routeProb2: Math.min(v, 1 - params.routeProb1) })}
-              />
+          const PATH_COLORS_R = ['var(--cyan)', 'var(--green)', 'var(--orange)'];
+          const PATH_LABELS_R = ['PATH 1', 'PATH 2', 'PATH 3'];
+          const PATH_KEYS_R = [
+            { key: 'routeProb1' as const, otherKey: 'routeProb2' as const },
+            { key: 'routeProb2' as const, otherKey: 'routeProb1' as const },
+          ];
 
-              {/* Path 3 is auto-derived */}
-              <div className="mb-4">
-                <div className="flex justify-between items-center mb-1.5">
-                  <span style={{ color: '#6a7f99', fontFamily: 'Space Grotesk', fontSize: '10px', letterSpacing: '0.07em' }}>
-                    PATH 3 PROBABILITY
-                  </span>
-                  <span style={{ color: 'var(--orange)', fontFamily: 'Space Mono', fontSize: '11px', fontWeight: 700 }}>
-                    {p3Prob.toFixed(2)}
+          return (
+            <div className="fade-in-up">
+              <div className="mb-5">
+                <div className="flex items-center gap-2 mb-3 pb-1.5" style={{ borderBottom: '1px solid rgba(0,212,255,0.22)' }}>
+                  <div style={{ width: '3px', height: '12px', borderRadius: '2px', background: 'var(--cyan)', boxShadow: '0 0 6px var(--cyan)' }} />
+                  <span style={{ color: 'var(--cyan)', fontFamily: 'Orbitron, sans-serif', fontSize: '9px', letterSpacing: '0.12em' }}>
+                    BRANCH ROUTING
                   </span>
                 </div>
-                <div style={{ height: '6px', borderRadius: '3px', background: 'var(--surface-4)', overflow: 'hidden' }}>
-                  <div style={{ width: `${p3Prob * 100}%`, height: '100%', background: 'var(--orange)', opacity: 0.6, borderRadius: '3px', transition: 'width 0.3s' }} />
-                </div>
-                <div style={{ color: '#2a3a5a', fontFamily: 'Space Grotesk', fontSize: '9px', marginTop: '4px' }}>
-                  Auto-calculated: 1 − P1 − P2
-                </div>
-              </div>
 
-              {/* Distribution bar */}
-              <div className="p-3 rounded" style={{ background: 'var(--surface-3)', border: '1px solid var(--border-dim)' }}>
-                <div style={{ color: '#3a5070', fontFamily: 'Rajdhani', fontSize: '9px', letterSpacing: '0.1em', marginBottom: '8px' }}>
-                  ROUTING DISTRIBUTION
-                </div>
-                <div className="flex h-5 rounded overflow-hidden gap-0.5">
-                  {[
-                    { prob: params.routeProb1, color: 'var(--cyan)',   label: 'P1' },
-                    { prob: params.routeProb2, color: 'var(--green)',  label: 'P2' },
-                    { prob: p3Prob,            color: 'var(--orange)', label: 'P3' },
-                  ].map((seg, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center justify-center rounded"
-                      style={{
-                        width: `${seg.prob * 100}%`,
-                        background: seg.color,
-                        opacity: 0.75,
-                        fontFamily: 'Space Mono',
-                        fontSize: '8px',
-                        fontWeight: 700,
-                        color: '#07090f',
-                        overflow: 'hidden',
-                        transition: 'width 0.3s',
-                        minWidth: seg.prob > 0.05 ? undefined : '0px',
-                      }}
-                    >
-                      {seg.prob > 0.08 ? seg.label : ''}
+                {/* PATH 1 */}
+                {pathEnabled[0] ? (
+                  <SliderInput
+                    label="PATH 1 PROBABILITY"
+                    value={params.routeProb1}
+                    min={0} max={1} step={0.01}
+                    color="var(--cyan)"
+                    tooltip="Fraction of entities routed to Path 1 (Left Lane)"
+                    onChange={v => onParamsChange({ routeProb1: Math.min(v, 1 - params.routeProb2) })}
+                  />
+                ) : (
+                  <div className="mb-4">
+                    <div className="flex justify-between items-center mb-1.5">
+                      <span style={{ color: '#3a5070', fontFamily: 'Space Grotesk', fontSize: '10px' }}>PATH 1 PROBABILITY</span>
+                      <span style={{ color: 'var(--red)', fontFamily: 'Space Mono', fontSize: '11px', fontWeight: 700 }}>OFF — 0%</span>
                     </div>
-                  ))}
-                </div>
-                <div className="flex justify-between mt-1">
-                  {[
-                    { v: params.routeProb1, c: 'var(--cyan)'   },
-                    { v: params.routeProb2, c: 'var(--green)'  },
-                    { v: p3Prob,            c: 'var(--orange)' },
-                  ].map((s, i) => (
-                    <span key={i} style={{ color: s.c, fontFamily: 'Space Mono', fontSize: '9px' }}>
-                      {Math.round(s.v * 100)}%
-                    </span>
-                  ))}
+                    <div style={{ height: '6px', borderRadius: '3px', background: 'var(--surface-4)', opacity: 0.3 }} />
+                    <div style={{ color: '#2a3a5a', fontFamily: 'Space Grotesk', fontSize: '9px', marginTop: '4px' }}>Path disabled — no entities routed</div>
+                  </div>
+                )}
+
+                {/* PATH 2 */}
+                {pathEnabled[1] ? (
+                  <SliderInput
+                    label="PATH 2 PROBABILITY"
+                    value={params.routeProb2}
+                    min={0} max={1} step={0.01}
+                    color="var(--green)"
+                    tooltip="Fraction of entities routed to Path 2 (Centre Lane)"
+                    onChange={v => onParamsChange({ routeProb2: Math.min(v, 1 - params.routeProb1) })}
+                  />
+                ) : (
+                  <div className="mb-4">
+                    <div className="flex justify-between items-center mb-1.5">
+                      <span style={{ color: '#3a5070', fontFamily: 'Space Grotesk', fontSize: '10px' }}>PATH 2 PROBABILITY</span>
+                      <span style={{ color: 'var(--red)', fontFamily: 'Space Mono', fontSize: '11px', fontWeight: 700 }}>OFF — 0%</span>
+                    </div>
+                    <div style={{ height: '6px', borderRadius: '3px', background: 'var(--surface-4)', opacity: 0.3 }} />
+                    <div style={{ color: '#2a3a5a', fontFamily: 'Space Grotesk', fontSize: '9px', marginTop: '4px' }}>Path disabled — no entities routed</div>
+                  </div>
+                )}
+
+                {/* PATH 3 — always auto-derived, but shows OFF if disabled */}
+                {pathEnabled[2] ? (
+                  <div className="mb-4">
+                    <div className="flex justify-between items-center mb-1.5">
+                      <span style={{ color: '#6a7f99', fontFamily: 'Space Grotesk', fontSize: '10px', letterSpacing: '0.07em' }}>PATH 3 PROBABILITY</span>
+                      <span style={{ color: 'var(--orange)', fontFamily: 'Space Mono', fontSize: '11px', fontWeight: 700 }}>
+                        {p3Prob.toFixed(2)}
+                      </span>
+                    </div>
+                    <div style={{ height: '6px', borderRadius: '3px', background: 'var(--surface-4)', overflow: 'hidden' }}>
+                      <div style={{ width: `${p3Prob * 100}%`, height: '100%', background: 'var(--orange)', opacity: 0.6, borderRadius: '3px', transition: 'width 0.3s' }} />
+                    </div>
+                    <div style={{ color: '#2a3a5a', fontFamily: 'Space Grotesk', fontSize: '9px', marginTop: '4px' }}>Auto-calculated: 1 − P1 − P2</div>
+                  </div>
+                ) : (
+                  <div className="mb-4">
+                    <div className="flex justify-between items-center mb-1.5">
+                      <span style={{ color: '#3a5070', fontFamily: 'Space Grotesk', fontSize: '10px' }}>PATH 3 PROBABILITY</span>
+                      <span style={{ color: 'var(--red)', fontFamily: 'Space Mono', fontSize: '11px', fontWeight: 700 }}>OFF — 0%</span>
+                    </div>
+                    <div style={{ height: '6px', borderRadius: '3px', background: 'var(--surface-4)', opacity: 0.3 }} />
+                    <div style={{ color: '#2a3a5a', fontFamily: 'Space Grotesk', fontSize: '9px', marginTop: '4px' }}>Path disabled — no entities routed</div>
+                  </div>
+                )}
+
+                {/* Distribution bar — shows only enabled paths */}
+                <div className="p-3 rounded" style={{ background: 'var(--surface-3)', border: '1px solid var(--border-dim)' }}>
+                  <div style={{ color: '#3a5070', fontFamily: 'Rajdhani', fontSize: '9px', letterSpacing: '0.1em', marginBottom: '8px' }}>
+                    EFFECTIVE ROUTING DISTRIBUTION
+                  </div>
+                  <div className="flex h-5 rounded overflow-hidden gap-0.5">
+                    {normalizedProbs.map((prob, i) => (
+                      pathEnabled[i] && prob > 0 ? (
+                        <div
+                          key={i}
+                          className="flex items-center justify-center rounded"
+                          style={{
+                            width: `${prob * 100}%`,
+                            background: PATH_COLORS_R[i],
+                            opacity: 0.75,
+                            fontFamily: 'Space Mono',
+                            fontSize: '8px',
+                            fontWeight: 700,
+                            color: '#07090f',
+                            overflow: 'hidden',
+                            transition: 'width 0.3s',
+                          }}
+                        >
+                          {prob > 0.1 ? `P${i + 1}` : ''}
+                        </div>
+                      ) : null
+                    ))}
+                  </div>
+                  <div className="flex justify-between mt-1">
+                    {normalizedProbs.map((prob, i) => (
+                      <span key={i} style={{ color: pathEnabled[i] ? PATH_COLORS_R[i] : 'var(--red)', fontFamily: 'Space Mono', fontSize: '9px' }}>
+                        {pathEnabled[i] ? `${Math.round(prob * 100)}%` : 'OFF'}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
+
       </div>
 
       {/* ── Run Prediction ── */}
