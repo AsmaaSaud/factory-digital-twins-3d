@@ -21,6 +21,16 @@ export default function Home() {
   const [showPrediction, setShowPrediction] = useState(false);
   const [activeView, setActiveView] = useState<'3d' | 'split'>('3d');
   const [showExport, setShowExport] = useState(false);
+  // Server positions on the X axis (in 3D scene units, default 4.5)
+  const [serverPositions, setServerPositions] = useState<[number, number, number]>([4.5, 4.5, 4.5]);
+
+  const handleServerMove = useCallback((pathIdx: number, newX: number) => {
+    setServerPositions(prev => {
+      const next: [number, number, number] = [...prev] as [number, number, number];
+      next[pathIdx] = parseFloat(newX.toFixed(2));
+      return next;
+    });
+  }, []);
   const simRef = useRef<FactorySimulation | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [sceneSize, setSceneSize] = useState({ width: 0, height: 0 });
@@ -270,6 +280,8 @@ export default function Home() {
               simState={simState}
               width={sceneSize.width}
               height={sceneSize.height}
+              serverPositions={serverPositions}
+              onServerMove={handleServerMove}
             />
 
             {/* 3D Overlay Labels */}
@@ -288,6 +300,48 @@ export default function Home() {
               >
                 3D FACTORY FLOOR — ISOMETRIC VIEW
               </div>
+            </div>
+
+            {/* Server Position Indicators */}
+            <div className="absolute top-12 left-3 flex flex-col gap-1" style={{ zIndex: 10 }}>
+              {[
+                { label: 'S1', color: '#00d4ff' },
+                { label: 'S2', color: '#00ff88' },
+                { label: 'S3', color: '#ff6b35' },
+              ].map((s, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-2 px-2 py-1 rounded text-xs"
+                  style={{
+                    background: 'rgba(10,14,26,0.85)',
+                    border: `1px solid ${s.color}44`,
+                    backdropFilter: 'blur(4px)',
+                  }}
+                >
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ background: s.color }} />
+                  <span style={{ color: s.color, fontFamily: 'Share Tech Mono', fontSize: '10px' }}>{s.label}</span>
+                  <span style={{ color: '#8899bb', fontFamily: 'Share Tech Mono', fontSize: '10px' }}>
+                    X={serverPositions[i].toFixed(1)}
+                  </span>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => handleServerMove(i, Math.max(-1, serverPositions[i] - 1))}
+                      className="w-4 h-4 rounded flex items-center justify-center text-xs"
+                      style={{ background: `${s.color}22`, border: `1px solid ${s.color}44`, color: s.color, lineHeight: 1 }}
+                    >-</button>
+                    <button
+                      onClick={() => handleServerMove(i, Math.min(13, serverPositions[i] + 1))}
+                      className="w-4 h-4 rounded flex items-center justify-center text-xs"
+                      style={{ background: `${s.color}22`, border: `1px solid ${s.color}44`, color: s.color, lineHeight: 1 }}
+                    >+</button>
+                    <button
+                      onClick={() => handleServerMove(i, 4.5)}
+                      className="px-1 h-4 rounded flex items-center justify-center"
+                      style={{ background: 'rgba(255,215,0,0.1)', border: '1px solid #ffd70044', color: '#ffd700', fontFamily: 'Share Tech Mono', fontSize: '9px' }}
+                    >RST</button>
+                  </div>
+                </div>
+              ))}
             </div>
 
             {/* Path labels overlay */}
