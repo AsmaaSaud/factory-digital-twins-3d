@@ -146,11 +146,20 @@ export class FactorySimulation {
   }
 
   private emit() {
-    this.listeners.forEach(l => l({ ...this.state }));
+    // Deep-copy throughputHistory so React detects the array reference change
+    this.listeners.forEach(l => l({
+      ...this.state,
+      throughputHistory: [...this.state.throughputHistory],
+      paths: this.state.paths.map(p => ({ ...p })) as SimState['paths'],
+    }));
   }
 
   getState(): SimState {
-    return { ...this.state };
+    return {
+      ...this.state,
+      throughputHistory: [...this.state.throughputHistory],
+      paths: this.state.paths.map(p => ({ ...p })) as SimState['paths'],
+    };
   }
 
   updateParams(params: Partial<SimParams>) {
