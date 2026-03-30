@@ -415,15 +415,20 @@ export class FactorySimulation {
         position: i,
       }));
 
-      // Utilization
-      const totalTime = this.state.time;
-      if (totalTime > 0) {
-        const means = [this.params.serviceMean1, this.params.serviceMean2, this.params.serviceMean3];
-        const arrivalRate = 1 / ((this.params.arrivalRate1 + this.params.arrivalRate2) / 2);
-        const utilization = Math.min(0.99, (arrivalRate * means[p]) / 3);
-        this.state.paths[p].serverUtilization = Math.round(utilization * 100);
-      }
+      // Utilization: based on actual server busy state (1 = busy, 0 = idle)
+      // We track a running average: each step contributes serverBusy ? dt : 0
+      // For simplicity, use instantaneous busy ratio over recent history
+      const isBusy = serverEntity !== undefined;
+      const prev = this.state.paths[p].serverUtilization;
+      // Exponential moving average with alpha=0.01 for smooth display
+      const alpha = 0.01;
+      const target = isBusy ? 100 : 0;
+      this.state.paths[p].serverUtilization = Math.round(prev * (1 - alpha) + target * alpha);
     }
+
+    // Recount resourceUsed from actual server entities to stay accurate
+    this.state.resourceUsed = this.entities.filter(e => e.stage === 'server').length;
+    this.state.resourceAvailable = this.params.resourceCapacity - this.state.resourceUsed;
   }
 
   // Run prediction with different params
